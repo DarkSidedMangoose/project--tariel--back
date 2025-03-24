@@ -43,8 +43,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 // Add authorization and configure the custom AdminPolicy
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("AdminPolicy", policy =>
-        policy.RequireClaim("http://schemas.microsoft.com/ws/2008/06/identity/claims/role", "admin"));
+    options.AddPolicy("SuperAdminPolicy", policy =>
+        policy.RequireClaim("http://schemas.microsoft.com/ws/2008/06/identity/claims/role", "superAdmin"));
     options.AddPolicy("FuckerPolicy", policy =>
     policy.RequireClaim("http://schemas.microsoft.com/ws/2008/06/identity/claims/role", "fucker"));
 
@@ -56,6 +56,7 @@ builder.Services.Configure<MongoDbSettings>(builder.Configuration.GetSection(nam
 // Add services to the container
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<ITasksRepository, TasksRepository>();
 builder.Services.AddControllers();
 builder.Services.AddCors(options =>
 {

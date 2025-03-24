@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace ASP.MongoDb.API.Controllers
 {
-    //[Authorize(Policy = "AdminPolicy")]
+    [Authorize(Policy = "SuperAdminPolicy")]
     [Route("api/[controller]")]
     [ApiController]
     public class UsersController : ControllerBase

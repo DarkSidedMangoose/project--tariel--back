@@ -43,7 +43,7 @@ namespace ASP.MongoDb.API.Controllers
                 Secure = true, // Set to true for HTTPS in production
                 SameSite = SameSiteMode.None, // Required for cross-origin requests
                 Path = "/",
-                Expires = DateTime.UtcNow.AddMinutes(1),
+                Expires = DateTime.UtcNow.AddHours(1),
             };
 
             Response.Cookies.Append("auth-token", token, cookieOptions);
@@ -57,7 +57,7 @@ namespace ASP.MongoDb.API.Controllers
         {
             // Add the user's role as a standard "role" claim
             var claims = new[] {
-                new Claim(JwtRegisteredClaimNames.Sub, user.username),  // User's username
+                new Claim(JwtRegisteredClaimNames.Sub, user.id),  // User's username
                 new Claim(ClaimTypes.Role, user.role) // Role of the user
             };
 
