@@ -43,11 +43,13 @@ namespace ASP.MongoDb.API.Controllers
             return CreatedAtAction(nameof(Get), new { id = user.id }, new
             {
                 user.id,
+                user.fullname,
                 user.username,
                 user.passwordHash,
                 user.role,
                 user.level,
-                user.diversion
+                user.diversion,
+                user.imgUrl
             }
                 );
         }
