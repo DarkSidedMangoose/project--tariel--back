@@ -1,5 +1,7 @@
-﻿using System.Security.Claims;
+﻿using System.Reflection;
+using System.Security.Claims;
 using ASP.MongoDb.API.Entities;
+using ASP.MongoDb.API.Models;
 using ASP.MongoDb.API.Repository;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -45,6 +47,7 @@ namespace ASP.MongoDb.API.Controllers
         }
 
         // get users for the tasks
+        
         [HttpGet("getUsersForTasks")]
         public async Task<IActionResult> GetSpecificUsersForGiveTasks()
         {
@@ -53,9 +56,87 @@ namespace ASP.MongoDb.API.Controllers
 
             var usersDedicatedForUser = users
         .Where(d => d.level == user.level - 1)
-        .Select(d => new {d.fullname, d.diversion, d.imgUrl}).ToList();
+        .Select(d => new {d.fullname, d.diversion, d.imgUrl,d.id}).ToList();
             
             return Ok(usersDedicatedForUser);
+        }
+        [HttpPut("giveTask")]
+        public async Task<IActionResult> GiveTask([FromBody] TaskRequest taskRequest)
+        {
+            if (taskRequest == null)
+            {
+                return BadRequest("Task request cannot be null");
+            }
+
+            var taskId = taskRequest.taskId;
+            var receiverId = taskRequest.receiveUserId;
+            if (string.IsNullOrEmpty(taskId) || string.IsNullOrEmpty(receiverId))
+            {
+
+                Console.WriteLine(receiverId);
+                return BadRequest($"TaskId and ReceiverId are required {taskId} {receiverId}");
+            }
+
+            try
+            {
+            var currentUser = await GetValidUserAsync();
+                if(currentUser == null)
+                {
+                    return Unauthorized("Current User is invalid or Not authenticated");
+                }
+            var receiverUser = await _userRepository.GetByIdAsync(receiverId);
+                if(receiverUser == null)
+                {
+                    return NotFound($"Receiver user with ID {receiverId} not found");
+                }
+            var taskById = await _tasksRepository.GetByIdAsync(taskId);
+                if(taskById == null)
+                {
+                    return NotFound($"The Task with ID {taskById} not found");
+                }
+
+                var levelOfSender = $"level{currentUser.level}";
+                var levelOfReceiver = $"level{receiverUser.level}";
+
+                var senderProperty = taskById.dataFlow.GetType().GetProperty(levelOfSender);
+                if (senderProperty != null)
+                {
+                    var senderLevel = (Tasks.Level)senderProperty.GetValue(taskById.dataFlow);
+                    if(senderLevel != null)
+                    {
+                        senderLevel.username = currentUser.username;
+                        senderLevel.status = "onPending";
+                        senderProperty.SetValue(taskById.dataFlow, senderLevel);
+                    }
+                }
+
+                var receiverProperty = taskById.dataFlow.GetType().GetProperty(levelOfReceiver);
+                if(receiverProperty != null)
+                {
+                    var receiverLevel = (Tasks.Level)receiverProperty.GetValue(taskById.dataFlow);
+                    if(receiverLevel != null)
+                    {
+                        receiverLevel.username = receiverUser.username;
+                        receiverLevel.status = "onGoing";
+                        receiverLevel.fromUsername = currentUser.username;
+                        receiverProperty.SetValue(taskById.dataFlow, receiverLevel);
+                    }
+                }
+
+                    if(taskById.id != null)
+                {
+
+                await _tasksRepository.UpdateAsync(taskById.id, taskById);
+                }
+                Console.WriteLine(taskById);
+
+                return Ok("everything work well");
+            }catch (Exception ex)
+            {
+                return StatusCode(500, $"internal server error: {ex.Message}");
+            }
+            
+            
         }
         //to get users access dedicated for them tasks
         private async Task<IActionResult> GetFilteredTasksAsync(string status)
