@@ -3,8 +3,10 @@ using System.Security.Claims;
 using ASP.MongoDb.API.Entities;
 using ASP.MongoDb.API.Models;
 using ASP.MongoDb.API.Repository;
+using ASP.MongoDb.API.SignalIR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 
 
 
@@ -16,11 +18,13 @@ namespace ASP.MongoDb.API.Controllers
 
     public class TasksController : ControllerBase
     {
+        private readonly IHubContext<NotificationHub> _hubContext;
         private readonly IUserRepository _userRepository;
         private ITasksRepository _tasksRepository;
 
-        public TasksController(ITasksRepository tasksRepository, IUserRepository userRepository)
+        public TasksController(ITasksRepository tasksRepository, IUserRepository userRepository, IHubContext<NotificationHub> hubContext)
         {
+            _hubContext = hubContext;
             _userRepository = userRepository;
             _tasksRepository = tasksRepository;
         }
@@ -104,7 +108,7 @@ namespace ASP.MongoDb.API.Controllers
                     var senderLevel = (Tasks.Level)senderProperty.GetValue(taskById.dataFlow);
                     if(senderLevel != null)
                     {
-                        senderLevel.username = currentUser.username;
+                        senderLevel.userId = currentUser.id;
                         senderLevel.status = "onPending";
                         senderProperty.SetValue(taskById.dataFlow, senderLevel);
                     }
@@ -116,9 +120,9 @@ namespace ASP.MongoDb.API.Controllers
                     var receiverLevel = (Tasks.Level)receiverProperty.GetValue(taskById.dataFlow);
                     if(receiverLevel != null)
                     {
-                        receiverLevel.username = receiverUser.username;
+                        receiverLevel.userId = receiverUser.id;
                         receiverLevel.status = "onGoing";
-                        receiverLevel.fromUsername = currentUser.username;
+                        receiverLevel.fromUserId = currentUser.id;
                         receiverProperty.SetValue(taskById.dataFlow, receiverLevel);
                     }
                 }
@@ -128,7 +132,14 @@ namespace ASP.MongoDb.API.Controllers
 
                 await _tasksRepository.UpdateAsync(taskById.id, taskById);
                 }
-                Console.WriteLine(taskById);
+                var connectionId = NotificationHub.GetConnectionId(receiverUser.id);
+                if (string.IsNullOrEmpty(connectionId))
+                {
+                    return NotFound($"Receiver user {receiverUser.id} doesnt find");
+                }
+                Console.WriteLine(connectionId);
+                await _hubContext.Clients.Client(connectionId)
+       .SendAsync("ReceiveData", $"User {receiverUser.username} has been updated.");
 
                 return Ok("everything work well");
             }catch (Exception ex)
@@ -143,7 +154,7 @@ namespace ASP.MongoDb.API.Controllers
         {
             var user = await GetValidUserAsync();
             var userLevel = user.level;
-            var username = user.username;
+            var userId = user.id;
             var tasks = await _tasksRepository.GetAllAsync();
             var tasksDataflowSpecificUser = $"level{userLevel}";
 
@@ -161,7 +172,7 @@ namespace ASP.MongoDb.API.Controllers
 
                 // Check if the "status" field is "onGoing"
 
-                return levelData != null && levelData.status == status && levelData.username == username;
+                return levelData != null && levelData.status == status && levelData.userId == userId;
             }).ToList();
 
 

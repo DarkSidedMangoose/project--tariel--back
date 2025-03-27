@@ -3,6 +3,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using ASP.MongoDb.API.Repository;
 using ASP.MongoDb.API.Settings;
+using ASP.MongoDb.API.SignalIR;
 
 var builder = WebApplication.CreateBuilder(args);
 Microsoft.IdentityModel.Logging.IdentityModelEventSource.ShowPII = true;
@@ -17,9 +18,31 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             {
                 // Check for the token in the cookies
                 var token = context.HttpContext.Request.Cookies["auth-token"];
+
                 if (!string.IsNullOrEmpty(token))
                 {
                     context.Token = token;  // Attach the token to the request
+                }
+
+                return Task.CompletedTask;
+            }
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                // Check for the token in the query string for SignalR
+                var accessToken = context.Request.Query["access_token"];
+
+                // Check for the token in cookies as a fallback
+                if (string.IsNullOrEmpty(accessToken))
+                {
+                    accessToken = context.HttpContext.Request.Cookies["auth-token"];
+                }
+
+                if (!string.IsNullOrEmpty(accessToken))
+                {
+                    context.Token = accessToken;  // Attach the token to the request
                 }
 
                 return Task.CompletedTask;
@@ -67,7 +90,8 @@ builder.Services.AddCors(options =>
             .AllowCredentials());
 });
 builder.Services.AddOpenApi();
-
+builder.Services.AddSignalR();
+builder.Logging.AddConsole();
 var app = builder.Build();
 app.UseCors("AllowFrontend");
 // Configure middleware
@@ -79,7 +103,9 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+
 app.UseHttpsRedirection();
 app.MapControllers();
+app.MapHub<NotificationHub>("/notificationHub");
 
 app.Run();

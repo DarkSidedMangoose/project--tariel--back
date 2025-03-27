@@ -26,9 +26,9 @@ namespace ASP.MongoDb.API.Entities
 
         public class Level
         {
-            public string username { get; set; }
+            public string userId { get; set; }
             public string status { get; set; }
-            public string? fromUsername { get; set; }
+            public string? fromUserId { get; set; }
         }
     }
 }
