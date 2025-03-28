@@ -135,11 +135,10 @@ namespace ASP.MongoDb.API.Controllers
                 var connectionId = NotificationHub.GetConnectionId(receiverUser.id);
                 if (string.IsNullOrEmpty(connectionId))
                 {
-                    return NotFound($"Receiver user {receiverUser.id} doesnt find");
+                Console.WriteLine("notFound5t");
                 }
-                Console.WriteLine(connectionId);
                 await _hubContext.Clients.Client(connectionId)
-       .SendAsync("ReceiveData", $"User {receiverUser.username} has been updated.");
+                .SendAsync("ReceiveData", $"User {receiverUser.username} has been updated.");
 
                 return Ok("everything work well");
             }catch (Exception ex)

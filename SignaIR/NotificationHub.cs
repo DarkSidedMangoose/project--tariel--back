@@ -19,6 +19,7 @@ namespace ASP.MongoDb.API.SignalIR
 
             if (userId != null)
             {
+                LogConnectedUsers();
                 UserConnections[userId] = Context.ConnectionId; // Map user ID to connection ID
             }
             else
@@ -63,5 +64,14 @@ namespace ASP.MongoDb.API.SignalIR
             UserConnections.TryGetValue(userId, out var connectionId);
             return connectionId; // Return connection ID if exists
         }
+        public void LogConnectedUsers()
+        {
+            Console.WriteLine("Connected Users:");
+            foreach (var user in UserConnections)
+            {
+                Console.WriteLine($"UserId: {user.Key}, ConnectionId: {user.Value}");
+            }
+        }
+
     }
 }
