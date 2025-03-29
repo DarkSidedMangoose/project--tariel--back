@@ -133,12 +133,13 @@ namespace ASP.MongoDb.API.Controllers
                 await _tasksRepository.UpdateAsync(taskById.id, taskById);
                 }
                 var connectionId = NotificationHub.GetConnectionId(receiverUser.id);
-                if (string.IsNullOrEmpty(connectionId))
+                if (!string.IsNullOrEmpty(connectionId))
                 {
-                Console.WriteLine("notFound5t");
-                }
+                string uniqueId = Guid.NewGuid().ToString();
                 await _hubContext.Clients.Client(connectionId)
-                .SendAsync("ReceiveData", $"User {receiverUser.username} has been updated.");
+                .SendAsync("ReceiveData", $"Update database - {uniqueId}");
+                    
+                }
 
                 return Ok("everything work well");
             }catch (Exception ex)

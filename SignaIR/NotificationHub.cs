@@ -15,11 +15,9 @@ namespace ASP.MongoDb.API.SignalIR
         {
             // Retrieve the user ID from the 'sub' claim
             var userId = Context.User?.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
-            Console.WriteLine($"User Connected: {userId}, ConnectionId: {Context.ConnectionId}");
 
             if (userId != null)
             {
-                LogConnectedUsers();
                 UserConnections[userId] = Context.ConnectionId; // Map user ID to connection ID
             }
             else
