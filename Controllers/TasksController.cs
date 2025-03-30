@@ -65,7 +65,7 @@ namespace ASP.MongoDb.API.Controllers
             return Ok(usersDedicatedForUser);
         }
         [HttpPut("giveTask")]
-        public async Task<IActionResult> GiveTask([FromBody] TaskRequest taskRequest)
+        public async Task<IActionResult> GiveTask([FromBody] SentTaskRequest taskRequest)
         {
             if (taskRequest == null)
             {
@@ -148,6 +148,75 @@ namespace ASP.MongoDb.API.Controllers
             }
             
             
+        }
+        [HttpPut("endTask")]
+        public async Task<IActionResult> EndTask([FromBody] OverTaskRequest OvertaskRequest)
+        {
+
+            Console.WriteLine(OvertaskRequest);
+            if (OvertaskRequest == null)
+            {
+                return BadRequest("Task request cannot be null");
+            }
+            try
+            {
+                var taskId = OvertaskRequest.taskId;
+                var task = await _tasksRepository.GetByIdAsync(taskId);
+                var userId = User?.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+
+                if (userId != null)
+                {
+                    var userInfo = await _userRepository.GetByIdAsync(userId);
+                    var userLevel = $"level{userInfo.level}";
+                    var receiverLevel = $"level{userInfo.level+1}";
+
+                    
+
+                    if (task != null && userLevel != null && receiverLevel != null)
+                    {
+                        var senderProperty = task.dataFlow.GetType().GetProperty(userLevel);
+
+                        var senderLevelValue = (Tasks.Level)senderProperty.GetValue(task.dataFlow);
+                        if(senderLevelValue != null)
+                        {
+                            senderLevelValue.status = "waitApproval";
+                            senderProperty.SetValue(task.dataFlow, senderLevelValue);
+                        }
+
+                        var receiverProperty = task.dataFlow.GetType().GetProperty(receiverLevel);
+
+                        if(receiverProperty != null)
+                        {
+                            var receiverLevelValue = (Tasks.Level)receiverProperty.GetValue(task.dataFlow);
+                            if(receiverLevelValue != null)
+                            {
+                                receiverLevelValue.status = "pendingApproval";
+                                receiverProperty.SetValue(task.dataFlow, receiverLevelValue);
+
+                                await _tasksRepository.UpdateAsync(task.id, task);
+                            }
+                        }
+
+                    }
+
+                }
+                else
+                {
+                    Console.WriteLine("User ID is not available.");
+                }
+
+
+
+
+
+                return Ok("everything work well");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"internal server error: {ex.Message}");
+            }
+
+
         }
         //to get users access dedicated for them tasks
         private async Task<IActionResult> GetFilteredTasksAsync(string status)

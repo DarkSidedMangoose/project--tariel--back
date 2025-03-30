@@ -2,7 +2,7 @@
 
 namespace ASP.MongoDb.API.Models
 {
-    public class TaskRequest
+    public class SentTaskRequest
     {
         
 
@@ -10,5 +10,9 @@ namespace ASP.MongoDb.API.Models
         public string receiveUserId { get; set; }
         
         
+    }
+    public class OverTaskRequest
+    {
+        public string taskId { get; set; }
     }
 }
