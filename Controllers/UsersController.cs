@@ -1,4 +1,5 @@
 ﻿using System.Net.Http.Headers;
+using System.Security.Claims;
 using ASP.MongoDb.API.Entities;
 using ASP.MongoDb.API.Repository;
 using Microsoft.AspNetCore.Authorization;
@@ -7,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace ASP.MongoDb.API.Controllers
 {
-    [Authorize(Policy = "SuperAdminPolicy")]
+    //[Authorize(Policy = "SuperAdminPolicy")]
     [Route("api/[controller]")]
     [ApiController]
     public class UsersController : ControllerBase
@@ -30,6 +31,31 @@ namespace ASP.MongoDb.API.Controllers
         {
             var user = await _repository.GetByIdAsync(id);
             return Ok(user);  
+        }
+
+        [HttpGet("getUserInfo")]
+        public async Task<IActionResult> GetUserInfo()
+        {
+            var userId = User?.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return NotFound("Token is expired");
+            }
+
+            var userInfo = await _repository.GetByIdAsync(userId);
+
+            if (userInfo == null)
+            {
+                return NotFound("User not found");
+            }
+
+            var desireInfo = new
+            {
+                userInfo.id,
+                userInfo.fullname,
+                userInfo.level
+            };
+            return Ok(desireInfo);
         }
         [HttpPost]
         public async Task <IActionResult> Create(Users user)
