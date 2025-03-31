@@ -132,14 +132,8 @@ namespace ASP.MongoDb.API.Controllers
 
                 await _tasksRepository.UpdateAsync(taskById.id, taskById);
                 }
-                var connectionId = NotificationHub.GetConnectionId(receiverUser.id);
-                if (!string.IsNullOrEmpty(connectionId))
-                {
-                string uniqueId = Guid.NewGuid().ToString();
-                await _hubContext.Clients.Client(connectionId)
-                .SendAsync("ReceiveData", $"Update database - {uniqueId}");
-                    
-                }
+                await SendData(receiverUser.id);
+                
 
                 return Ok("everything work well");
             }catch (Exception ex)
@@ -194,6 +188,81 @@ namespace ASP.MongoDb.API.Controllers
                                 receiverProperty.SetValue(task.dataFlow, receiverLevelValue);
 
                                 await _tasksRepository.UpdateAsync(task.id, task);
+                                await SendData(receiverLevelValue.userId);
+                                
+
+                            }
+                        
+                        }
+
+                    }
+
+                }
+                else
+                {
+                    Console.WriteLine("User ID is not available.");
+                }
+
+
+
+
+
+                return Ok("everything work well");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"internal server error: {ex.Message}");
+            }
+
+
+        }
+        [HttpPut("declineTask")]
+        public async Task<IActionResult> DeclinedTask([FromBody] OverTaskRequest OvertaskRequest)
+        {
+
+            Console.WriteLine(OvertaskRequest);
+            if (OvertaskRequest == null)
+            {
+                return BadRequest("Task request cannot be null");
+            }
+            try
+            {
+                var taskId = OvertaskRequest.taskId;
+                var task = await _tasksRepository.GetByIdAsync(taskId);
+                var userId = User?.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+
+                if (userId != null)
+                {
+                    var userInfo = await _userRepository.GetByIdAsync(userId);
+                    var userLevel = $"level{userInfo.level}";
+                    var receiverLevel = $"level{userInfo.level - 1}";
+
+
+
+                    if (task != null && userLevel != null && receiverLevel != null)
+                    {
+                        var senderProperty = task.dataFlow.GetType().GetProperty(userLevel);
+
+                        var senderLevelValue = (Tasks.Level)senderProperty.GetValue(task.dataFlow);
+                        if (senderLevelValue != null)
+                        {
+                            senderLevelValue.status = "onPending";
+                            senderProperty.SetValue(task.dataFlow, senderLevelValue);
+                        }
+
+                        var receiverProperty = task.dataFlow.GetType().GetProperty(receiverLevel);
+
+                        if (receiverProperty != null)
+                        {
+                            var receiverLevelValue = (Tasks.Level)receiverProperty.GetValue(task.dataFlow);
+                            if (receiverLevelValue != null)
+                            {
+                                receiverLevelValue.status = "onGoing";
+                                receiverProperty.SetValue(task.dataFlow, receiverLevelValue);
+
+                                await _tasksRepository.UpdateAsync(task.id, task);
+                                await SendData(receiverLevelValue.userId);
+                                
                             }
                         }
 
@@ -222,6 +291,10 @@ namespace ASP.MongoDb.API.Controllers
         private async Task<IActionResult> GetFilteredTasksAsync(string status)
         {
             var user = await GetValidUserAsync();
+            if(user == null)
+            {
+                return BadRequest("userId is missing");
+            }
             var userLevel = user.level;
             var userId = user.id;
             var tasks = await _tasksRepository.GetAllAsync();
@@ -262,15 +335,30 @@ namespace ASP.MongoDb.API.Controllers
             return Ok(result);
         }
 
+
+        public async Task SendData(string userId)
+        {
+            var connectionId = NotificationHub.GetConnectionId(userId);
+            if (!string.IsNullOrEmpty(connectionId))
+            {
+                string uniqueId = Guid.NewGuid().ToString();
+                await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveData", $"Update database - {uniqueId}");
+            }
+
+        }
+
+
         public async Task<Users> GetValidUserAsync()
         {
-            var UserId = User?.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
-            if(string.IsNullOrEmpty(UserId))
+            var userId = User?.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(userId))
             {
-                return null;
+                return null; // Return null if user ID is missing
             }
-            var user = await _userRepository.GetByIdAsync(UserId);
-            return user;
+
+            // Directly return the user, no need for if-else here
+            return await _userRepository.GetByIdAsync(userId);
         }
     }
 }
