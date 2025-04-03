@@ -2,6 +2,7 @@
 using System.Security.Claims;
 using ASP.MongoDb.API.Entities;
 using ASP.MongoDb.API.Repository;
+using ASP.MongoDb.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -13,11 +14,13 @@ namespace ASP.MongoDb.API.Controllers
     [ApiController]
     public class UsersController : ControllerBase
     {
+        private readonly RedisExample _redisExample;
         private readonly IUserRepository _repository;
 
-        public UsersController(IUserRepository userRepository)
+        public UsersController(IUserRepository userRepository, RedisExample redisExample)
         {
             _repository = userRepository;
+            _redisExample = redisExample;
         }
 
         [HttpGet]
@@ -36,10 +39,21 @@ namespace ASP.MongoDb.API.Controllers
         [HttpGet("getUserInfo")]
         public async Task<IActionResult> GetUserInfo()
         {
-            var userId = User?.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
+            var sessionToken = Request.Cookies["session-token"];
+            if(string.IsNullOrEmpty(sessionToken))
             {
                 return NotFound("Token is expired");
+            }
+            var userId = await _redisExample.GetUserIdBySessionToken(sessionToken);
+
+            if (string.IsNullOrEmpty(sessionToken))
+            {
+                return NotFound("Token is expired ");
+            }
+
+            if(string.IsNullOrEmpty(userId))
+            {
+                return NotFound("not found user id");
             }
 
             var userInfo = await _repository.GetByIdAsync(userId);
@@ -56,6 +70,14 @@ namespace ASP.MongoDb.API.Controllers
                 userInfo.level
             };
             return Ok(desireInfo);
+
+
+            //if (string.IsNullOrEmpty(userId))
+            //{
+            //    return NotFound("Token is expired");
+            //}
+
+            
         }
         [HttpPost]
         public async Task <IActionResult> Create(Users user)
@@ -101,7 +123,7 @@ namespace ASP.MongoDb.API.Controllers
         public async Task<IActionResult> Delete(string id)
         {
             await _repository.DeleteAsync(id);
-            return Ok(new { success = true, message = "product deleted" });
+            return Ok(new { success = true, message = "deleted" });
         }
     }
 }

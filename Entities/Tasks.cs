@@ -17,6 +17,16 @@ namespace ASP.MongoDb.API.Entities
         public string jobType { get; set; }
         public string riskLevel { get; set; }
         public Levels dataFlow {  get; set; }
+        public List<TaskLogEntry> dataLogs { get; set; } = new List<TaskLogEntry>();
+
+        public class TaskLogEntry
+        {
+            public string timestamp { get; set; }
+            public string addedBy { get; set; }
+            public string description { get; set; }
+            public string? receiverTo { get; set; }
+
+        }
 
         public class Levels
         {

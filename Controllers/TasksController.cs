@@ -1,18 +1,18 @@
-﻿using System.Reflection;
-using System.Security.Claims;
-using ASP.MongoDb.API.Entities;
+﻿using ASP.MongoDb.API.Entities;
 using ASP.MongoDb.API.Models;
 using ASP.MongoDb.API.Repository;
+using ASP.MongoDb.API.Services;
 using ASP.MongoDb.API.SignalIR;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Caching.Distributed;
+
 
 
 
 namespace ASP.MongoDb.API.Controllers
 {
-    [Authorize]
+    //[Authorize]
     [Route("api/[controller]")]
     [ApiController]
 
@@ -21,12 +21,16 @@ namespace ASP.MongoDb.API.Controllers
         private readonly IHubContext<NotificationHub> _hubContext;
         private readonly IUserRepository _userRepository;
         private ITasksRepository _tasksRepository;
+        private readonly RedisExample _redisExample;
 
-        public TasksController(ITasksRepository tasksRepository, IUserRepository userRepository, IHubContext<NotificationHub> hubContext)
+
+
+        public TasksController(ITasksRepository tasksRepository, IUserRepository userRepository, IHubContext<NotificationHub> hubContext, RedisExample redisExample)
         {
             _hubContext = hubContext;
             _userRepository = userRepository;
             _tasksRepository = tasksRepository;
+            _redisExample = redisExample;
         }
 
         [HttpGet("onGoing")]
@@ -146,8 +150,6 @@ namespace ASP.MongoDb.API.Controllers
         [HttpPut("endTask")]
         public async Task<IActionResult> EndTask([FromBody] OverTaskRequest OvertaskRequest)
         {
-
-            Console.WriteLine(OvertaskRequest);
             if (OvertaskRequest == null)
             {
                 return BadRequest("Task request cannot be null");
@@ -156,14 +158,16 @@ namespace ASP.MongoDb.API.Controllers
             {
                 var taskId = OvertaskRequest.taskId;
                 var task = await _tasksRepository.GetByIdAsync(taskId);
-                var userId = User?.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+                var userId = await getUserIdViaSessionToken();
+
+                Console.WriteLine($"{userId} userId");
 
                 if (userId != null)
                 {
                     var userInfo = await _userRepository.GetByIdAsync(userId);
                     var userLevel = $"level{userInfo.level}";
                     var receiverLevel = $"level{userInfo.level+1}";
-
+                    Console.WriteLine(userInfo.level);
                     
 
                     if (task != null && userLevel != null && receiverLevel != null)
@@ -229,8 +233,9 @@ namespace ASP.MongoDb.API.Controllers
             {
                 var taskId = OvertaskRequest.taskId;
                 var task = await _tasksRepository.GetByIdAsync(taskId);
-                var userId = User?.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+                var userId = await getUserIdViaSessionToken();
 
+                
                 if (userId != null)
                 {
                     var userInfo = await _userRepository.GetByIdAsync(userId);
@@ -328,7 +333,7 @@ namespace ASP.MongoDb.API.Controllers
                 t.turnover,
                 t.jobType,
                 t.riskLevel,
-
+                t.dataLogs
             }).ToList();
 
             // Return the filtered tasks
@@ -347,17 +352,35 @@ namespace ASP.MongoDb.API.Controllers
 
         }
 
+       public async Task<string> getUserIdViaSessionToken()
+        {
+            var sessionToken =  Request.Cookies["session-token"];
+            var userId = await _redisExample.GetUserIdBySessionToken(sessionToken);
+
+            Console.WriteLine(userId);
+
+            if (string.IsNullOrEmpty(userId)) {
+                return null;
+            }
+
+            return userId;
+        }
 
         public async Task<Users> GetValidUserAsync()
         {
-            var userId = User?.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+            var sessionToken = Request.Cookies["session-token"];
+        if (string.IsNullOrEmpty(sessionToken))
+        {
+                return null;
+            }
+
+            var userId = await _redisExample.GetUserIdBySessionToken(sessionToken);
 
             if (string.IsNullOrEmpty(userId))
             {
                 return null; // Return null if user ID is missing
             }
 
-            // Directly return the user, no need for if-else here
             return await _userRepository.GetByIdAsync(userId);
         }
     }
