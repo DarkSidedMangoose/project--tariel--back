@@ -13,8 +13,9 @@ namespace ASP.MongoDb.API.Entities
         public string username { get; set; }
         public string passwordHash { get; set; }
         public string role { get; set; }
-        public string? diversion { get; set; }
-        public int? level { get; set; }
+        public string diversion { get; set; }
+        public string position { get; set; } 
+        public int level { get; set; }
         public string imgUrl { get; set; }
     }
 }

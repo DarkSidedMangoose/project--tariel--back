@@ -5,7 +5,6 @@ using ASP.MongoDb.API.Services;
 using ASP.MongoDb.API.SignalIR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.Extensions.Caching.Distributed;
 
 
 
@@ -64,7 +63,7 @@ namespace ASP.MongoDb.API.Controllers
 
             var usersDedicatedForUser = users
         .Where(d => d.level == user.level - 1)
-        .Select(d => new {d.fullname, d.diversion, d.imgUrl,d.id}).ToList();
+        .Select(d => new {d.fullname, d.diversion, d.imgUrl,d.id, d.position}).ToList();
             
             return Ok(usersDedicatedForUser);
         }
