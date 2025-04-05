@@ -21,11 +21,15 @@ namespace ASP.MongoDb.API.Entities
 
         public class TaskLogEntry
         {
+            public int level { get; set; }
             public string timestamp { get; set; }
-            public string addedBy { get; set; }
+            public string addedByName { get; set; }
+            public string addedById { get; set; }
             public string description { get; set; }
-            public string? receiverTo { get; set; }
-
+            public string? receiverName { get; set; }
+            public string? receiverId { get; set; }
+            public string? comment { get; set; }
+            public string imgUrl { get; set; }
         }
 
         public class Levels

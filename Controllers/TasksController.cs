@@ -42,10 +42,10 @@ namespace ASP.MongoDb.API.Controllers
         {
             return await GetFilteredTasksAsync("onPending");
         }
-        [HttpGet("pendingApproval")]
-        public async Task<IActionResult> GetPendingApproval()
+        [HttpGet("receiveApproval")]
+        public async Task<IActionResult> GetReceiveApproval()
         {
-            return await GetFilteredTasksAsync("pendingApproval");
+            return await GetFilteredTasksAsync("receiveApproval");
         }
         [HttpGet("waitApproval")]
         public async Task<IActionResult> GetWaitApproval()
@@ -62,8 +62,8 @@ namespace ASP.MongoDb.API.Controllers
             var users = await _userRepository.GetAllAsync();
 
             var usersDedicatedForUser = users
-        .Where(d => d.level == user.level - 1)
-        .Select(d => new {d.fullname, d.diversion, d.imgUrl,d.id, d.position}).ToList();
+        .Where(d => d.level == user.level - 1 && (user.department == null || d.department == user.department))
+        .Select(d => new {d.fullname, d.diversion, d.imgUrl,d.id, d.position, d.department}).ToList();
             
             return Ok(usersDedicatedForUser);
         }
@@ -117,6 +117,7 @@ namespace ASP.MongoDb.API.Controllers
                     }
                 }
 
+
                 var receiverProperty = taskById.dataFlow.GetType().GetProperty(levelOfReceiver);
                 if(receiverProperty != null)
                 {
@@ -130,7 +131,19 @@ namespace ASP.MongoDb.API.Controllers
                     }
                 }
 
-                    if(taskById.id != null)
+                taskById.dataLogs.Add(new Tasks.TaskLogEntry
+                {
+                    level = currentUser.level,
+                    timestamp = DateTime.Now.ToString(),
+                    addedByName = currentUser.fullname,
+                    addedById = currentUser.id,
+                    description = "დავალების გაცემა",
+                    receiverName = receiverUser.fullname,
+                    receiverId = receiverUser.id,
+                    comment = "გაუშვით პრიორიტეტებში",
+                    imgUrl = currentUser.imgUrl
+                });
+                if (taskById.id != null)
                 {
 
                 await _tasksRepository.UpdateAsync(taskById.id, taskById);
@@ -187,7 +200,7 @@ namespace ASP.MongoDb.API.Controllers
                             var receiverLevelValue = (Tasks.Level)receiverProperty.GetValue(task.dataFlow);
                             if(receiverLevelValue != null)
                             {
-                                receiverLevelValue.status = "pendingApproval";
+                                receiverLevelValue.status = "receiveApproval";
                                 receiverProperty.SetValue(task.dataFlow, receiverLevelValue);
 
                                 await _tasksRepository.UpdateAsync(task.id, task);
