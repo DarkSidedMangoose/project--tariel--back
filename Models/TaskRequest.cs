@@ -14,5 +14,11 @@ namespace ASP.MongoDb.API.Models
     public class OverTaskRequest
     {
         public string taskId { get; set; }
+        public string? comment { get; set; }
+    }
+    public class DeclineTaskRequest
+    {
+        public string taskId { get; set; }
+        public string comment { get; set; }
     }
 }

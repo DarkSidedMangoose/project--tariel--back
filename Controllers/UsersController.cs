@@ -24,7 +24,7 @@ namespace ASP.MongoDb.API.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> Get()
+        public async Task<IActionResult> GetAllUser()
         {
             var users = await _repository.GetAllAsync();
             return Ok(users);
@@ -33,14 +33,14 @@ namespace ASP.MongoDb.API.Controllers
         public async Task<IActionResult> Get(string id)
         {
             var user = await _repository.GetByIdAsync(id);
-            return Ok(user);  
+            return Ok(user);
         }
 
         [HttpGet("getUserInfo")]
         public async Task<IActionResult> GetUserInfo()
         {
             var sessionToken = Request.Cookies["session-token"];
-            if(string.IsNullOrEmpty(sessionToken))
+            if (string.IsNullOrEmpty(sessionToken))
             {
                 return NotFound("Token is expired");
             }
@@ -51,7 +51,7 @@ namespace ASP.MongoDb.API.Controllers
                 return NotFound("Token is expired ");
             }
 
-            if(string.IsNullOrEmpty(userId))
+            if (string.IsNullOrEmpty(userId))
             {
                 return NotFound("not found user id");
             }
@@ -77,10 +77,10 @@ namespace ASP.MongoDb.API.Controllers
             //    return NotFound("Token is expired");
             //}
 
-            
+
         }
         [HttpPost]
-        public async Task <IActionResult> Create(Users user)
+        public async Task<IActionResult> Create(Users user)
         {
             //Hash the plain text password using BCrypt
             user.passwordHash = BCrypt.Net.BCrypt.HashPassword(user.passwordHash);
@@ -106,7 +106,7 @@ namespace ASP.MongoDb.API.Controllers
         public async Task<IActionResult> Update(string id, Users user)
         {
             var exactUser = await _repository.GetByIdAsync(id);
-            if(exactUser == null)
+            if (exactUser == null)
             {
                 return BadRequest("there is not such an user");
             }
@@ -124,6 +124,15 @@ namespace ASP.MongoDb.API.Controllers
         {
             await _repository.DeleteAsync(id);
             return Ok(new { success = true, message = "deleted" });
+        }
+        [HttpGet("AllUsersDesiredData")]
+        public async Task <IActionResult> GetDataForConfigurations()
+        {
+            var users = await _repository.GetAllAsync();
+
+            var desiredInfoOfUsers = users.Select(d => new { d.id, d.fullname, d.position, d.level, d.department, d.diversion }).ToList();
+
+            return Ok(desiredInfoOfUsers);
         }
     }
 }

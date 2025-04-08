@@ -34,6 +34,8 @@ namespace ASP.MongoDb.API.Entities
 
         public class Levels
         {
+            public Level level7 { get; set; }
+            public Level level6 { get; set; }
             public Level level5 { get; set; }
             public Level level4 { get; set; }
             public Level level3 { get; set; }

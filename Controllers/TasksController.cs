@@ -1,4 +1,5 @@
-﻿using ASP.MongoDb.API.Entities;
+﻿using System.Threading.Tasks;
+using ASP.MongoDb.API.Entities;
 using ASP.MongoDb.API.Models;
 using ASP.MongoDb.API.Repository;
 using ASP.MongoDb.API.Services;
@@ -140,7 +141,6 @@ namespace ASP.MongoDb.API.Controllers
                     description = "დავალების გაცემა",
                     receiverName = receiverUser.fullname,
                     receiverId = receiverUser.id,
-                    comment = "გაუშვით პრიორიტეტებში",
                     imgUrl = currentUser.imgUrl
                 });
                 if (taskById.id != null)
@@ -160,16 +160,16 @@ namespace ASP.MongoDb.API.Controllers
             
         }
         [HttpPut("endTask")]
-        public async Task<IActionResult> EndTask([FromBody] OverTaskRequest OvertaskRequest)
+        public async Task<IActionResult> EndTask([FromBody] OverTaskRequest overtaskRequest)
         {
-            if (OvertaskRequest == null)
+            if (overtaskRequest == null)
             {
                 return BadRequest("Task request cannot be null");
             }
             try
             {
-                var taskId = OvertaskRequest.taskId;
-                var task = await _tasksRepository.GetByIdAsync(taskId);
+                var taskId = overtaskRequest.taskId;
+                var taskById = await _tasksRepository.GetByIdAsync(taskId);
                 var userId = await getUserIdViaSessionToken();
 
                 Console.WriteLine($"{userId} userId");
@@ -182,28 +182,41 @@ namespace ASP.MongoDb.API.Controllers
                     Console.WriteLine(userInfo.level);
                     
 
-                    if (task != null && userLevel != null && receiverLevel != null)
+                    if (taskById != null && userLevel != null && receiverLevel != null)
                     {
-                        var senderProperty = task.dataFlow.GetType().GetProperty(userLevel);
+                        var senderProperty = taskById.dataFlow.GetType().GetProperty(userLevel);
 
-                        var senderLevelValue = (Tasks.Level)senderProperty.GetValue(task.dataFlow);
+                        var senderLevelValue = (Tasks.Level)senderProperty.GetValue(taskById.dataFlow);
                         if(senderLevelValue != null)
                         {
                             senderLevelValue.status = "waitApproval";
-                            senderProperty.SetValue(task.dataFlow, senderLevelValue);
+                            senderProperty.SetValue(taskById.dataFlow, senderLevelValue);
                         }
 
-                        var receiverProperty = task.dataFlow.GetType().GetProperty(receiverLevel);
-
-                        if(receiverProperty != null)
+                        var receiverProperty = taskById.dataFlow.GetType().GetProperty(receiverLevel);
+                        if (receiverProperty != null)
                         {
-                            var receiverLevelValue = (Tasks.Level)receiverProperty.GetValue(task.dataFlow);
+                            var receiverLevelValue = (Tasks.Level)receiverProperty.GetValue(taskById.dataFlow);
                             if(receiverLevelValue != null)
                             {
                                 receiverLevelValue.status = "receiveApproval";
-                                receiverProperty.SetValue(task.dataFlow, receiverLevelValue);
+                                receiverProperty.SetValue(taskById.dataFlow, receiverLevelValue);
 
-                                await _tasksRepository.UpdateAsync(task.id, task);
+                        var receiverUser = await _userRepository.GetByIdAsync(receiverLevelValue.userId);
+                                taskById.dataLogs.Add(new Tasks.TaskLogEntry
+                                {
+                                    level = userInfo.level,
+                                    timestamp = DateTime.Now.ToString(),
+                                    addedByName = userInfo.fullname,
+                                    addedById = userInfo.id,
+                                    description = "დავალების დასრულების მოთხოვნა",
+                                    receiverName = receiverUser.fullname,
+                                    receiverId = receiverUser.id,
+                                    imgUrl = userInfo.imgUrl
+                                });
+
+                                await _tasksRepository.UpdateAsync(taskById.id, taskById);
+
                                 await SendData(receiverLevelValue.userId);
                                 
 
@@ -221,7 +234,7 @@ namespace ASP.MongoDb.API.Controllers
 
 
 
-
+               
 
                 return Ok("everything work well");
             }
@@ -233,18 +246,18 @@ namespace ASP.MongoDb.API.Controllers
 
         }
         [HttpPut("declineTask")]
-        public async Task<IActionResult> DeclinedTask([FromBody] OverTaskRequest OvertaskRequest)
+        public async Task<IActionResult> DeclinedTask([FromBody] DeclineTaskRequest declineTaskRequest)
         {
 
-            Console.WriteLine(OvertaskRequest);
-            if (OvertaskRequest == null)
+            Console.WriteLine(declineTaskRequest);
+            if (declineTaskRequest == null)
             {
                 return BadRequest("Task request cannot be null");
             }
             try
             {
-                var taskId = OvertaskRequest.taskId;
-                var task = await _tasksRepository.GetByIdAsync(taskId);
+                var taskId = declineTaskRequest.taskId;
+                var taskById = await _tasksRepository.GetByIdAsync(taskId);
                 var userId = await getUserIdViaSessionToken();
 
                 
@@ -256,28 +269,43 @@ namespace ASP.MongoDb.API.Controllers
 
 
 
-                    if (task != null && userLevel != null && receiverLevel != null)
+                    if (taskById != null && userLevel != null && receiverLevel != null)
                     {
-                        var senderProperty = task.dataFlow.GetType().GetProperty(userLevel);
+                        var senderProperty = taskById.dataFlow.GetType().GetProperty(userLevel);
 
-                        var senderLevelValue = (Tasks.Level)senderProperty.GetValue(task.dataFlow);
+                        var senderLevelValue = (Tasks.Level)senderProperty.GetValue(taskById.dataFlow);
                         if (senderLevelValue != null)
                         {
                             senderLevelValue.status = "onPending";
-                            senderProperty.SetValue(task.dataFlow, senderLevelValue);
+                            senderProperty.SetValue(taskById.dataFlow, senderLevelValue);
                         }
 
-                        var receiverProperty = task.dataFlow.GetType().GetProperty(receiverLevel);
+                        var receiverProperty = taskById.dataFlow.GetType().GetProperty(receiverLevel);
 
                         if (receiverProperty != null)
                         {
-                            var receiverLevelValue = (Tasks.Level)receiverProperty.GetValue(task.dataFlow);
+                            var receiverLevelValue = (Tasks.Level)receiverProperty.GetValue(taskById.dataFlow);
                             if (receiverLevelValue != null)
                             {
                                 receiverLevelValue.status = "onGoing";
-                                receiverProperty.SetValue(task.dataFlow, receiverLevelValue);
+                                receiverProperty.SetValue(taskById.dataFlow, receiverLevelValue);
 
-                                await _tasksRepository.UpdateAsync(task.id, task);
+                                var receiverUser = await _userRepository.GetByIdAsync(receiverLevelValue.userId);
+
+                                taskById.dataLogs.Add(new Tasks.TaskLogEntry
+                                {
+                                    level = userInfo.level,
+                                    timestamp = DateTime.Now.ToString(),
+                                    addedByName = userInfo.fullname,
+                                    addedById = userInfo.id,
+                                    description = "დავალების დასრულების მოთხოვნის უარყოფა",
+                                    receiverName = receiverUser.fullname,
+                                    receiverId = receiverUser.id,
+                                    imgUrl = userInfo.imgUrl,
+                                    comment = declineTaskRequest.comment
+                                });
+
+                                await _tasksRepository.UpdateAsync(taskById.id, taskById);
                                 await SendData(receiverLevelValue.userId);
                                 
                             }
