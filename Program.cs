@@ -31,6 +31,8 @@ builder.Services.AddSession(options =>
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ITasksRepository, TasksRepository>();
+builder.Services.AddScoped<IStructureOfSystemRepository, StructureOfSystemRepository>();
+
 
 // Add RedisExample Service
 builder.Services.AddSingleton<RedisExample>(provider =>

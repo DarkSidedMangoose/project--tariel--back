@@ -72,10 +72,7 @@ namespace ASP.MongoDb.API.Controllers
             return Ok(desireInfo);
 
 
-            //if (string.IsNullOrEmpty(userId))
-            //{
-            //    return NotFound("Token is expired");
-            //}
+           
 
 
         }
@@ -129,8 +126,10 @@ namespace ASP.MongoDb.API.Controllers
         public async Task <IActionResult> GetDataForConfigurations()
         {
             var users = await _repository.GetAllAsync();
+            
 
-            var desiredInfoOfUsers = users.Select(d => new { d.id, d.fullname, d.position, d.level, d.department, d.diversion }).ToList();
+            var desiredInfoOfUsers = users.Select(d => new { d.id, d.fullname, d.position, d.level, d.department, d.diversion, d.status, d.section }).ToList();
+            
 
             return Ok(desiredInfoOfUsers);
         }

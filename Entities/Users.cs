@@ -18,5 +18,7 @@ namespace ASP.MongoDb.API.Entities
         public int level { get; set; }
         public string imgUrl { get; set; }
         public string? department { get; set; }
+        public string status { get; set; }
+        public string section { get; set; }
     }
 }
