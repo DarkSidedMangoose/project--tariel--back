@@ -1,4 +1,5 @@
-﻿using System.Security.Cryptography;
+﻿using System;
+using System.Security.Cryptography;
 using MongoDB.Bson.Serialization.Attributes;
 
 namespace ASP.MongoDb.API.Entities
@@ -23,13 +24,13 @@ namespace ASP.MongoDb.API.Entities
 
         public class Department1
         {
-            public string name;
+            public string name { get; set; }
             public Diversions diversions { get; set; }
         }
         public class Department2
         {
             
-            public string name;
+            public string name { get; set; }
             public Diversions diversions { get; set; }
         }
     }
@@ -52,6 +53,7 @@ namespace ASP.MongoDb.API.Entities
             public string section1 { get; set; }
             public string? section2 { get; set; }
         }
+}
 
-    }
+
 
