@@ -24,17 +24,18 @@ namespace ASP.MongoDb.API.Controllers
             {
 
 
-            var allStructures = await _structureOfSystemRepository.GetAllAsync();
-            
-            return Ok(allStructures);
-            }catch(Exception ex)
+                var allStructures = await _structureOfSystemRepository.GetAllAsync();
+
+                return Ok(allStructures);
+            }
+            catch (Exception ex)
             {
                 Console.WriteLine($"there is a error occured: {ex.Message}");
                 return StatusCode(500, "internal server error occured");
-            } 
+            }
         }
 
-        
+
 
     }
 }
