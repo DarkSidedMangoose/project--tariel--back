@@ -1,6 +1,7 @@
 ﻿using System.Net.Http.Headers;
 using System.Security.Claims;
 using ASP.MongoDb.API.Entities;
+using ASP.MongoDb.API.Models;
 using ASP.MongoDb.API.Repository;
 using ASP.MongoDb.API.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -76,27 +77,94 @@ namespace ASP.MongoDb.API.Controllers
 
 
         }
-        [HttpPost]
+        [HttpPost("addUsers")]
         public async Task<IActionResult> Create(Users user)
         {
+            Console.WriteLine(user);
             //Hash the plain text password using BCrypt
             user.passwordHash = BCrypt.Net.BCrypt.HashPassword(user.passwordHash);
 
-            // Call the repository's CreateAsync method to save the user
-            await _repository.CreateAsync(user);
-
-            return CreatedAtAction(nameof(Get), new { id = user.id }, new
+            if(user.level == 7)
             {
-                user.id,
-                user.fullname,
-                user.username,
-                user.passwordHash,
-                user.role,
-                user.level,
-                user.diversion,
-                user.imgUrl
+                user.position = "მთავარი შრომის ინსპექტორი";
+                user.role = "superAdmin";
+                user.department = "წვდომა ყველა დეპარტამენტზე";
+                user.diversion = "წვდომა ყველა სამართველოზე";
+                user.section = "წვდომა ყველა განყოფილებაზე";
+            }else if(user.level == 6 ) 
+            {
+                    user.role = "admin";
+                if (user.department == "შრომითი უფლებების ზედამხედველობის დეპარტამენტი")
+                {
+                user.position = "მთავარი შრომის ინსპექტორის 1-ლი მოადგილე";
+
+                }else
+                {
+                    user.position = "მთავარი შრომის ინსპექტორის მოადგილე";
+                }
+                if(user.department == "შრომითი უფლებების ზედამხედველობის დეპარტამენტი")
+                {
+                    user.diversion = "წვდომა შრომითი უფლებების ზედამხედველობის ყველა სამართველოზე";
+                    user.section = "წვდომა შრომითი უფლებების ზედამხედველობის ყველა განყოფილებაზე";
+                }else
+                {
+                    user.diversion = "წვდომა შრომის უსაფრთხოებაზე ზედამხედველობის ყველა სამართველოზე";
+                    user.section = "წვდომა შრომის უსაფრთხოებაზე ზედამხედველობის ყველა განყოფილებაზე";
+                }
+            }else if (user.level == 5)
+            {
+                user.role = "departmentHead";
+                user.position = "დეპარტამენტის უფროსი";
+                if(user.department == "შრომითი უფლებების ზედამხედველობის დეპარტამენტი")
+                {
+                    user.diversion = "წვდომა შრომითი უფლებების ზედამხედველობის ყველა სამართველოზე";
+                    user.section = "წვდომა შრომითი უფლებების ზედამხედველობის ყველა განყოფილებაზე";
+                }else
+                {
+                    user.diversion = "წვდომა შრომის უსაფრთხოებაზე ზედამხედველობის ყველა სამართველოზე";
+                    user.section = "წვდომა შრომის უსაფრთხოებაზე ზედამხედველობის ყველა განყოფილებაზე";
+                }
+
             }
-                );
+            else if (user.level == 4)
+            {
+                user.role = "divisionHead";
+                user.position = "სამართველოს უფროსი";
+                    user.section = $"წვდომა {user.diversion}-ს ყველა განყოფილებაზე";
+                if (user.department == "შრომითი უფლებების ზედამხედველობის დეპარტამენტი")
+                {
+                }
+                else
+                {
+                    user.section = "წვდომა შრომის უსაფრთხოებაზე ზედამხედველობის ყველა განყოფილებაზე";
+                }
+            }
+            else if (user.level == 3)
+            {
+                user.role = "groupManager";
+                
+                user.position = "განყოფილების უფროსი";
+            }else if (user.level == 2)
+            {
+                user.role = "seniorInspector";
+
+                user.position = "უფროსი შრომის ინსპექტორი";
+            }else if (user.level == 1)
+            {
+                user.role = "inspector";
+
+                user.position = "შრომის ინსპექტორი";
+            }
+
+                user.status = "აქტიური";
+
+                // Call the repository's CreateAsync method to save the user
+
+
+                await _repository.CreateAsync(user);
+            return Ok("user Created succesfully");
+
+            
         }
         [HttpPut("{id}")]
 
