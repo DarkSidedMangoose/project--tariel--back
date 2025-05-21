@@ -56,6 +56,7 @@ builder.Services.AddCors(options =>
               .AllowCredentials());
 });
 
+Console.OutputEncoding = System.Text.Encoding.UTF8;
 // Enable Swagger/OpenAPI
 builder.Services.AddOpenApi();
 

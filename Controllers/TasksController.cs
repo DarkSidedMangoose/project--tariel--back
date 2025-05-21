@@ -4,6 +4,7 @@ using ASP.MongoDb.API.Models;
 using ASP.MongoDb.API.Repository;
 using ASP.MongoDb.API.Services;
 using ASP.MongoDb.API.SignalIR;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 
@@ -54,17 +55,37 @@ namespace ASP.MongoDb.API.Controllers
             return await GetFilteredTasksAsync("waitApproval");
         }
 
+        [HttpGet("getCommentDesireDatas")]
+        public async Task<IActionResult> GetCommentDesireDatas([FromQuery] string taskId)
+        {
+            if(string.IsNullOrEmpty(taskId))
+            {
+                return BadRequest("Task Id Is missing");
+            }
+            var task = await _tasksRepository.GetByIdAsync(taskId);
+            if (task == null)
+            {
+                return BadRequest("There is not any task according to that id, some kind of problem");
+            }
+            var lastLog = task.dataLogs?.LastOrDefault(); // Access the last object safely
+
+
+            return Ok(new
+            {
+                senterName = lastLog.receiverName,
+                receiverName = lastLog.addedByName
+            });
+
+
+        }
         // get users for the tasks
-        
+
         [HttpGet("getUsersForTasks")]
         public async Task<IActionResult> GetSpecificUsersForGiveTasks()
         {
             var user = await GetValidUserAsync();
             var users = await _userRepository.GetAllAsync();
-
-            var usersDedicatedForUser = users
-        .Where(d => d.level == user.level - 1 && (user.department == null || d.department == user.department))
-        .Select(d => new {d.fullname, d.diversion, d.imgUrl,d.id, d.position, d.department}).ToList();
+            var usersDedicatedForUser = users.Where(d => d.level == user.level - 1 &&  (d.level == 6 || user.department == null || d.department == user.department)).Select(d => new {d.fullname, d.diversion, d.imgUrl,d.id, d.position, d.department}).ToList();
             
             return Ok(usersDedicatedForUser);
         }
