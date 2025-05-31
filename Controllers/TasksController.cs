@@ -266,6 +266,22 @@ namespace ASP.MongoDb.API.Controllers
 
 
         }
+
+        [HttpPost("addNewTask")]
+
+        public async Task<IActionResult> AddNewTask(Tasks tasks)
+        {
+            Console.WriteLine("skak");
+            if(tasks == null)
+            {
+                return BadRequest("Problem Tasks is null");
+            }
+
+            await _tasksRepository.CreateAsync(tasks);
+            
+            return Ok("data has upload succesfully");
+        }
+
         [HttpPut("declineTask")]
         public async Task<IActionResult> DeclinedTask([FromBody] DeclineTaskRequest declineTaskRequest)
         {
@@ -387,13 +403,13 @@ namespace ASP.MongoDb.API.Controllers
             var result = filteredTasks.Select(t => new
             {
                 t.id,
-                t.identifyCode,
-                t.wholeName,
-                t.region,
-                t.fizAddress,
-                t.turnover,
-                t.jobType,
-                t.riskLevel,
+                t.objectIdentifierData.identifyCode,
+                t.objectIdentifierData.wholeName,
+                t.addresses.region,
+                t.addresses.fizAddress,
+                t.taxPayerInfo.iurPersonIncomeRotation,
+                t.activityinformation.workingDescription,
+                t.activityinformation.riskLevel,
                 t.dataLogs
             }).ToList();
 
