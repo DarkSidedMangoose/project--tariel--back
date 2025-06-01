@@ -403,13 +403,13 @@ namespace ASP.MongoDb.API.Controllers
             var result = filteredTasks.Select(t => new
             {
                 t.id,
-                t.objectIdentifierData.identifyCode,
-                t.objectIdentifierData.wholeName,
-                t.addresses.region,
-                t.addresses.fizAddress,
-                t.taxPayerInfo.iurPersonIncomeRotation,
-                t.activityinformation.workingDescription,
-                t.activityinformation.riskLevel,
+                t.objectIdentifierData?.identifyCode,
+                t.objectIdentifierData?.fullName,
+                t.addresses?.region,
+                t.addresses?.factAddress,
+                t.payerInfo?.iurPersonIncomeRotation,
+                t.activityinformation?.workingDescription,
+                t.activityinformation?.riskLevel,
                 t.dataLogs
             }).ToList();
 
