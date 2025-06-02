@@ -29,7 +29,7 @@ namespace ASP.MongoDb.API.Entities
         }
 
         public class TaxPayerInfo {
-            public bool? VAT { get; set; }
+            public bool? vat { get; set; }
             public string? fizPersonIncome { get; set; }
 
             public string? iurPersonIncomeRotation { get; set;}
@@ -60,7 +60,7 @@ namespace ASP.MongoDb.API.Entities
             public string? streetFactAddress { get; set; }
             public string? streetIurAddress { get; set; }
             public string? postalCode { get; set; }
-            public List<string>? addressesOfFactActions { get; set; } = new List<string>();
+            public string? addressesOfFactActions { get; set; } 
 
 
         }

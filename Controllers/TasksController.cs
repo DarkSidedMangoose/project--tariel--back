@@ -78,6 +78,24 @@ namespace ASP.MongoDb.API.Controllers
 
 
         }
+        [HttpGet("getSpecificTaskData")]
+        public async Task<IActionResult> GetSpecificTask([FromQuery] string taskId)
+        {
+            if(string.IsNullOrEmpty(taskId) )
+            {
+               
+               return BadRequest("there is Error not taskId");
+            }
+
+            var specificTask = await _tasksRepository.GetByIdAsync(taskId);
+            if(specificTask == null)
+            {
+                return BadRequest("there is not that task something error ");
+            }
+
+            return Ok(specificTask);
+        }
+
         // get users for the tasks
 
         [HttpGet("getUsersForTasks")]
