@@ -148,7 +148,7 @@ namespace ASP.MongoDb.API.Controllers
                 var senderProperty = taskById.dataFlow.GetType().GetProperty(levelOfSender);
                 if (senderProperty != null)
                 {
-                    var senderLevel = (Tasks.Level)senderProperty.GetValue(taskById.dataFlow);
+                    var senderLevel = senderProperty.GetValue(taskById.dataFlow) as Tasks.Level;
                     if(senderLevel != null)
                     {
                         senderLevel.userId = currentUser.id;
@@ -287,15 +287,41 @@ namespace ASP.MongoDb.API.Controllers
 
         [HttpPost("addNewTask")]
 
-        public async Task<IActionResult> AddNewTask(Tasks tasks)
+        public async Task<IActionResult> AddNewTask([FromBody] AddTaskRequest request)
         {
-            Console.WriteLine("skak");
-            if(tasks == null)
+            if(request.FirstArgument == null)
             {
                 return BadRequest("Problem Tasks is null");
             }
 
-            await _tasksRepository.CreateAsync(tasks);
+            var task = request.FirstArgument;
+
+            var userLevel = $"level{request.SecondArgument.level}";
+           
+            if(task != null && task.dataFlow != null)
+            {
+
+            var propertyName = task.dataFlow.GetType().GetProperty(userLevel);
+                if(propertyName != null)
+                {
+
+                    var createrLevelValue = propertyName.GetValue(task.dataFlow) as Tasks.Level;
+                if (createrLevelValue != null)
+            {
+                createrLevelValue.userId = request.SecondArgument.id;
+                createrLevelValue.status = "onGoing";
+                propertyName.SetValue(task.dataFlow, createrLevelValue);
+
+
+            }
+                }
+                
+
+               
+            }
+
+
+            await _tasksRepository.CreateAsync(task);
             
             return Ok("data has upload succesfully");
         }

@@ -201,5 +201,29 @@ namespace ASP.MongoDb.API.Controllers
 
             return Ok(desiredInfoOfUsers);
         }
+
+        [HttpGet("LogOut")]
+        public async Task<IActionResult> LogOut([FromQuery] string taskId)
+        {
+            if (string.IsNullOrEmpty(taskId))
+            {
+                return BadRequest("token is missed");
+            }
+
+            Console.WriteLine("everything work well");
+            HttpContext.Session.Remove("session-token");
+
+            // Expire the HttpOnly cookie
+            Response.Cookies.Append("session-token", "", new CookieOptions
+            {
+                Expires = DateTime.UtcNow.AddDays(-1), // Forces expiration
+                HttpOnly = true, // Keeps it secure
+                Secure = true, // Required if using HTTPS
+                SameSite = SameSiteMode.Strict // Adjust based on security needs
+            });
+
+            return Ok("Session-token cookie removed successfully.");
+        }
+
     }
 }
