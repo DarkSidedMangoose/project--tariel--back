@@ -14,6 +14,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="Controllers\Class.cs" />
+    <Compile Remove="Controllers\ValuesController.cs" />
+    <Compile Remove="Controllers\ValuesController1.cs" />
+    <Compile Remove="Controllers\ValuesController2.cs" />
+    <Compile Remove="Entities\Class.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.3" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.2" />

@@ -1,6 +1,7 @@
 ﻿using ASP.MongoDb.API.Entities;
 using ASP.MongoDb.API.Settings;
 using Microsoft.Extensions.Options;
+using MongoDB.Driver;
 
 
 namespace ASP.MongoDb.API.Repository
@@ -14,9 +15,7 @@ namespace ASP.MongoDb.API.Repository
     public class StructureOfSystemRepository : Repository<Structure>, IStructureOfSystemRepository
 
     {
-        public StructureOfSystemRepository(IOptions<MongoDbSettings> settings) : base(settings)
-        {
-
-        }
+        public StructureOfSystemRepository(MongoClient client, IOptions<MongoDbSettings> settings)
+       : base(client, settings) { }
     }
 }

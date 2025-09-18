@@ -6,6 +6,8 @@ using ASP.MongoDb.API.Settings;
 using ASP.MongoDb.API.SignalIR;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.StackExchangeRedis;
+using Microsoft.Extensions.Options;
+using MongoDB.Driver;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,6 +31,7 @@ builder.Services.AddSession(options =>
 
 // Register Repositories and Other Services
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+builder.Services.AddScoped<IGenerateFilesRepository, GenerateFilesRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ITasksRepository, TasksRepository>();
 builder.Services.AddScoped<IStructureOfSystemRepository, StructureOfSystemRepository>();
@@ -43,8 +46,18 @@ builder.Services.AddSingleton<RedisExample>(provider =>
     return new RedisExample(cache); // Use IDistributedCache in RedisExample
 });
 
+
+// Register MongoClient as Singleton
+builder.Services.AddSingleton<MongoClient>(sp =>
+{
+    var settings = sp.GetRequiredService<IOptions<MongoDbSettings>>().Value;
+    return new MongoClient(settings.ConnectionString);
+});
+
+
 // Add Controllers
 builder.Services.AddControllers();
+
 
 // Configure CORS
 builder.Services.AddCors(options =>
@@ -87,6 +100,65 @@ if (app.Environment.IsDevelopment())
 
 // Run the app
 app.Run();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

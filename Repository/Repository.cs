@@ -10,17 +10,12 @@ namespace ASP.MongoDb.API.Repository
     {
         private readonly IMongoCollection<T> _collection;
 
-        public Repository(IOptions<MongoDbSettings> settings) {
-
-            // Instance of Mongo Client
-            var client = new MongoClient(settings.Value.ConnectionString);
-
-            // Database instance
+        public Repository(MongoClient client, IOptions<MongoDbSettings> settings)
+        {
             var database = client.GetDatabase(settings.Value.DatabaseName);
-
-            // Collection from the database
             _collection = database.GetCollection<T>(typeof(T).Name);
         }
+
 
         // Retrieves all documents and convert the result to a list
         public async Task<IEnumerable<T>> GetAllAsync()

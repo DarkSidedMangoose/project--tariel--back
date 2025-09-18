@@ -6,10 +6,10 @@ namespace ASP.MongoDb.API.Entities
 {
     public class Structure
     {
-        [BsonId]
-        [BsonRepresentation(MongoDB.Bson.BsonType.ObjectId)]
+            [BsonId]
+            [BsonRepresentation(MongoDB.Bson.BsonType.ObjectId)]
 
-        public string? id { get; set; }
+            public string? id { get; set; }
         [BsonElement("levels")]
         public List<int> Levels { get; set; }
         public SystemOfStruct systemStruct { get; set; }

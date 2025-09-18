@@ -21,7 +21,7 @@ namespace ASP.MongoDb.API.Controllers
     {
         private readonly IHubContext<NotificationHub> _hubContext;
         private readonly IUserRepository _userRepository;
-        private ITasksRepository _tasksRepository;
+        private readonly ITasksRepository _tasksRepository;
         private readonly RedisExample _redisExample;
 
 
