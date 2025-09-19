@@ -71,6 +71,20 @@ namespace ASP.MongoDb.API.Controllers
 
             }
         }
+        [HttpPut("updateTemplate")]
+        public async Task<IActionResult> UpdateTemplate([FromBody] GenerateFiles response)
+        {
+            if (response == null)
+            {
+                return BadRequest("response take from front is null");
+            }
+            else
+            {
+                await _generateFilesRepository.UpdateAsync(response.id, response);
+                return Ok("yes");
+
+            }
+        }
 
     }
 }
