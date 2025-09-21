@@ -7,6 +7,9 @@ using IronWord.Models;
 using IronWord.Models.Enums;
 using SixLabors.Fonts;
 using Font = IronWord.Models.Font;
+using System.Drawing;
+using System.Text.RegularExpressions;
+using Color = System.Drawing.Color;
 
 namespace ASP.MongoDb.API.Controllers
 {
@@ -132,54 +135,110 @@ namespace ASP.MongoDb.API.Controllers
             }
         }
 
+        private Color ParseColor(string? colorString)
+        {
+            if (string.IsNullOrWhiteSpace(colorString))
+                return Color.Black;
+
+            colorString = colorString.Trim().Trim('"');
+
+            if (colorString.StartsWith("rgb"))
+            {
+                var match = Regex.Match(colorString, @"rgb\((\d+),\s*(\d+),\s*(\d+)\)");
+                if (match.Success)
+                {
+                    int r = int.Parse(match.Groups[1].Value);
+                    int g = int.Parse(match.Groups[2].Value);
+                    int b = int.Parse(match.Groups[3].Value);
+                    return Color.FromArgb(r, g, b);
+                }
+            }
+
+            try
+            {
+                return ColorTranslator.FromHtml(colorString);
+            }
+            catch
+            {
+                return Color.Black; // fallback
+            }
+        }
+
         [HttpPost("generateWordFile")]
         public IActionResult GenerateWordFile([FromBody] GenerateFiles response)
         {
             try
             {
-                // Load docx
                 WordDocument doc = new WordDocument();
-                // Configure text
 
-                TextContent textRun = new TextContent();
-                textRun.Text = "Add text using IronWord";
-                
-                textRun.Style = new TextStyle()
+                foreach (var templateStateObj in response.templateState)
                 {
-                    TextFont = new Font()
+                    foreach (var templateStateObjChildren in templateStateObj.children)
                     {
-                        FontFamily = "Caveat",
-                        FontSize = 16,
-                    },
-                    Color = Color.Red,
-                    IsBold = true,
-                    IsItalic = true,
-                    Underline = new Underline(),
-                    Strike = StrikeValue.Strike,
-                };
-                Paragraph paragraph = new Paragraph()
-                {
-                    Alignment = IronWord.Models.Enums.TextAlignment.Right
-                };
-                // Add text
-                paragraph.AddText(textRun);
-                // Add paragraph
-                doc.AddParagraph(paragraph);
+                        Paragraph paragraph = new Paragraph();
+                        // Set alignment
+                        switch (templateStateObjChildren.justify?.ToLower())
+                        {
+                            case "left":
+                                paragraph.Alignment = IronWord.Models.Enums.TextAlignment.Left;
+                                break;
+                            case "center":
+                                paragraph.Alignment = IronWord.Models.Enums.TextAlignment.Center;
+                                break;
+                            case "right":
+                                paragraph.Alignment = IronWord.Models.Enums.TextAlignment.Right;
+                                break;
+                            default:
+                                paragraph.Alignment = IronWord.Models.Enums.TextAlignment.Left;
+                                break;
+                        }
 
-                var filePath = Path.Combine("C:\\New folder\\ASP.MongoDb.API", response.templateName);
+                        foreach (var textArea in templateStateObjChildren.textArea)
+                        {
+                            TextContent textRun = new TextContent
+                            {
+                                Text = textArea.value,
+                                Style = new TextStyle
+                                {
+                                    TextFont = new Font
+                                    {
+                                        FontFamily = textArea.className.fontFamily,
+                                        FontSize = (float)(textArea.className.fontSize ?? 16)
+                                    },
+                                    Color = ParseColor(textArea.className.fontColor),
+                                    IsBold = textArea.className.fontStyle.bold,
+                                    IsItalic = textArea.className.fontStyle.italic,
+                                    Underline = textArea.className.fontStyle.underLine ? new Underline() : null,
+                                    // Add background color (highlight or shading)
+                                    
+                                }
+                            };
+
+                            paragraph.AddText(textRun);
+                        }
+
+                        doc.AddParagraph(paragraph);
+                    }
+                }
+
+
+                // Save and return the file
+                var fileName = string.IsNullOrWhiteSpace(response.templateName) ? "output.docx" : response.templateName;
+                var filePath = Path.Combine("C:\\New folder\\ASP.MongoDb.API", fileName);
                 doc.SaveAs(filePath);
 
-                // Read and return the file as a download
                 var fileBytes = System.IO.File.ReadAllBytes(filePath);
                 return File(fileBytes,
                             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                            "output.docx");
+                            fileName);
             }
             catch (IOException ioEx)
             {
                 return StatusCode(StatusCodes.Status500InternalServerError, $"File access error: {ioEx.Message}");
             }
         }
+
+    
 
     }
 }
