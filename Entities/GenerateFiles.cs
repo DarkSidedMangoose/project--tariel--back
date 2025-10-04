@@ -32,6 +32,8 @@ namespace ASP.MongoDb.API.Entities
 
     public class templateStructureChildrenTextArea
     {
+        public string? uuid { get; set; }
+
         public string? type { get; set; }
         public string? value { get; set; }
         public templateStructureChildrenTextAreaClassName? className { get; set; }
@@ -45,7 +47,6 @@ namespace ASP.MongoDb.API.Entities
         public string? fontElement { get; set; }
         public string? justify { get; set; }
         public string? fontColor { get; set; }
-        public string? bgColor { get; set; }
     }
 
     public class templateStructureChildrenTextAreaClassNameFontStyle

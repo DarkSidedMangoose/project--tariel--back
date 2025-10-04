@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -22,7 +22,28 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Remove="add" />
+    <None Remove="akk" />
+    <None Remove="bbbb" />
+    <None Remove="kk" />
+    <None Remove="kkk" />
+    <None Remove="kkkmm" />
+    <None Remove="l" />
+    <None Remove="output.docx" />
+    <None Remove="sad" />
+    <None Remove="scca" />
+    <None Remove="sjaja" />
+    <None Remove="snnn" />
+    <None Remove="sაd" />
+    <None Remove="მითითება" />
+    <None Remove="მითითება ნიმუში 2ა488" />
+    <None Remove="მითითების ნიმუში" />
+    <None Remove="მითითების ნიმუში N" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.3.0" />
     <PackageReference Include="IronWord" Version="2025.9.6" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.3" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.2" />

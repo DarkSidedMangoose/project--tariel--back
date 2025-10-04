@@ -2,14 +2,12 @@
 using Microsoft.AspNetCore.Http;
 using ASP.MongoDb.API.Entities;
 using Microsoft.AspNetCore.Mvc;
-using IronWord;
-using IronWord.Models;
-using IronWord.Models.Enums;
-using SixLabors.Fonts;
-using Font = IronWord.Models.Font;
 using System.Drawing;
 using System.Text.RegularExpressions;
 using Color = System.Drawing.Color;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Wordprocessing;
+using DocumentFormat.OpenXml;
 
 namespace ASP.MongoDb.API.Controllers
 {
@@ -118,10 +116,8 @@ namespace ASP.MongoDb.API.Controllers
                     }
                 }
 
-                // Create and save Word document
-                var doc = new WordDocument();
-                doc.AddText("Hello from IronWord!");
-                doc.SaveAs(filePath);
+                
+                
 
                 return Ok("Template updated and Word file saved successfully.");
             }
@@ -169,63 +165,25 @@ namespace ASP.MongoDb.API.Controllers
         {
             try
             {
-                WordDocument doc = new WordDocument();
-
-                foreach (var templateStateObj in response.templateState)
-                {
-                    foreach (var templateStateObjChildren in templateStateObj.children)
-                    {
-                        Paragraph paragraph = new Paragraph();
-                        // Set alignment
-                        switch (templateStateObjChildren.justify?.ToLower())
-                        {
-                            case "left":
-                                paragraph.Alignment = IronWord.Models.Enums.TextAlignment.Left;
-                                break;
-                            case "center":
-                                paragraph.Alignment = IronWord.Models.Enums.TextAlignment.Center;
-                                break;
-                            case "right":
-                                paragraph.Alignment = IronWord.Models.Enums.TextAlignment.Right;
-                                break;
-                            default:
-                                paragraph.Alignment = IronWord.Models.Enums.TextAlignment.Left;
-                                break;
-                        }
-
-                        foreach (var textArea in templateStateObjChildren.textArea)
-                        {
-                            TextContent textRun = new TextContent
-                            {
-                                Text = textArea.value,
-                                Style = new TextStyle
-                                {
-                                    TextFont = new Font
-                                    {
-                                        FontFamily = textArea.className.fontFamily,
-                                        FontSize = (float)(textArea.className.fontSize ?? 16)
-                                    },
-                                    Color = ParseColor(textArea.className.fontColor),
-                                    IsBold = textArea.className.fontStyle.bold,
-                                    IsItalic = textArea.className.fontStyle.italic,
-                                    Underline = textArea.className.fontStyle.underLine ? new Underline() : null,
-                                    // Add background color (highlight or shading)
-                                    
-                                }
-                            };
-
-                            paragraph.AddText(textRun);
-                        }
-
-                        doc.AddParagraph(paragraph);
-                    }
-                }
-
-
-                // Save and return the file
                 var fileName = string.IsNullOrWhiteSpace(response.templateName) ? "output.docx" : response.templateName;
                 var filePath = Path.Combine("C:\\New folder\\ASP.MongoDb.API", fileName);
-                doc.SaveAs(filePath);
+
+                using (var wordDoc = WordprocessingDocument.Create(filePath, WordprocessingDocumentType.Document))
+                {
+                    var mainPart = wordDoc.AddMainDocumentPart();
+                    mainPart.Document = new Document(new Body());
+
+                    foreach (var templateStateObj in response.templateState)
+                    {
+                        foreach (var child in templateStateObj.children)
+                        {
+                            var paragraph = BuildParagraph(child);
+                            mainPart.Document.Body.Append(paragraph);
+                        }
+                    }
+
+                    mainPart.Document.Save();
+                }
 
                 var fileBytes = System.IO.File.ReadAllBytes(filePath);
                 return File(fileBytes,
@@ -237,8 +195,71 @@ namespace ASP.MongoDb.API.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, $"File access error: {ioEx.Message}");
             }
         }
+        private Paragraph BuildParagraph(templateStructureChildren child)
+        {
+            var paragraph = new Paragraph();
 
-    
+            var justification = new Justification
+            {
+                Val = child.justify?.ToLower() switch
+                {
+                    "center" => JustificationValues.Center,
+                    "right" => JustificationValues.Right,
+                    _ => JustificationValues.Left
+                }
+            };
+
+            var pProps = new ParagraphProperties(justification);
+            paragraph.AppendChild(pProps);
+
+            foreach (var textArea in child.textArea)
+            {
+                var run = BuildRun(textArea);
+                paragraph.Append(run);
+            }
+
+            return paragraph;
+        }
+        private Run BuildRun(templateStructureChildrenTextArea textArea)
+        {
+            var runProps = new RunProperties
+            {
+                RunFonts = new RunFonts { Ascii = textArea.className.fontFamily },
+                FontSize = new FontSize { Val = ((textArea.className.fontSize ?? 16) * 2).ToString() }
+            };
+
+            if (!string.IsNullOrEmpty(textArea.className.fontColor))
+            {
+                runProps.Color = new DocumentFormat.OpenXml.Wordprocessing.Color
+                {
+                    Val = ConvertColorToHex(textArea.className.fontColor)
+                };
+            }
+
+            if (textArea.className.fontStyle.bold) runProps.Bold = new Bold();
+            if (textArea.className.fontStyle.italic) runProps.Italic = new Italic();
+            if (textArea.className.fontStyle.underLine) runProps.Underline = new Underline { Val = UnderlineValues.Single };
+
+            var run = new Run(runProps, new Text
+            {
+                Text = textArea.value,
+                Space = SpaceProcessingModeValues.Preserve
+            });
+
+            return run;
+        }
+        private string ConvertColorToHex(string rgb)
+        {
+            try
+            {
+                var color = System.Drawing.ColorTranslator.FromHtml(rgb);
+                return $"{color.R:X2}{color.G:X2}{color.B:X2}";
+            }
+            catch
+            {
+                return "000000"; // fallback to black
+            }
+        }
 
     }
 }
