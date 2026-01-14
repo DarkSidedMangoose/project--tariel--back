@@ -32,10 +32,13 @@ namespace ASP.MongoDb.API.Controllers
             // Validate the user's credentials
             var users = await _userRepository.GetAllAsync();
             var user = users.FirstOrDefault(u => u.username == loginRequest.Username);
-
+            
             if (user == null || !BCrypt.Net.BCrypt.Verify(loginRequest.Password, user.passwordHash))
             {
-                return Unauthorized("Invalid username or password.");
+                
+                return Unauthorized(users);
+
+                
             }
             //new unique session token
             var uniqueId = Guid.NewGuid().ToString();

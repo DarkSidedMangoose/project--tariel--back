@@ -63,7 +63,7 @@ builder.Services.AddControllers();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
-        policy.WithOrigins("http://localhost:3000", "https://localhost:3000") // Allow local frontend origins
+        policy.WithOrigins("http://localhost:3000", "https://localhost:3000","https://localhost") // Allow local frontend origins
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials());

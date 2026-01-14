@@ -34,9 +34,26 @@ namespace ASP.MongoDb.API.Entities
     {
         public string? uuid { get; set; }
         public string? questionName { get; set; }
+        public questionaryQuestionChildren? questionInnerValueChildren { get; set; }
         public string? type { get; set; }
         public string? value { get; set; }
         public templateStructureChildrenTextAreaClassName? className { get; set; }
+    }
+
+
+
+    public class questionaryQuestionChildren { 
+        public Int32 questionIndex { get; set; }
+        public string choosedAnswer { get; set; }
+        public  List<questionaryQuestionChildrenContext> context { get; set; }
+        
+    }
+
+    public class questionaryQuestionChildrenContext
+    {
+        public string? questionAnswer { get; set; }
+        public Int16 questionIdentifier { get; set; }
+        public List<templateStructureChildren>? answeredQuestionInner { get; set; }
     }
 
     public class templateStructureChildrenTextAreaClassName

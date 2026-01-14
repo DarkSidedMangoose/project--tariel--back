@@ -30,35 +30,23 @@ namespace ASP.MongoDb.API.Controllers
         }
 
         [HttpGet("getTemplatesName")]
-
         public async Task<IActionResult> GetTemplates()
         {
             var allData = await _generateFilesRepository.GetAllAsync();
-
             if (allData == null)
-            {
-                return BadRequest("connection Error to the database");
-            }
-            else
-            {
+                return BadRequest("Connection error to the database");
 
-                var templateList = allData.Select(t => t.templateName).ToList();
-                var templateIds = allData.Select(t => t.id).ToList();
+            var templateList = allData.Select(t => t.templateName).ToList();
+            var templateIds = allData.Select(t => t.id).ToList();
 
-                return Ok(new
-                {
-                    templateList = templateList,
-                    templateIds = templateIds
-                });
-            }
+            return Ok(new { templateList, templateIds });
         }
+
         [HttpGet("getTemplateState")]
         public async Task<IActionResult> GetTemplateState([FromQuery] string templateId)
         {
             if (string.IsNullOrEmpty(templateId))
-            {
-                return BadRequest("cant access template id correctly");
-            }
+                return BadRequest("Template id is missing");
 
             var templateData = await _generateFilesRepository.GetByIdAsync(templateId);
             return Ok(templateData);
@@ -68,56 +56,34 @@ namespace ASP.MongoDb.API.Controllers
         public async Task<IActionResult> AddNewTemplate([FromBody] GenerateFiles response)
         {
             if (response == null)
-            {
-                return BadRequest("response take from front is null");
-            }
-            else
-            {
-                await _generateFilesRepository.CreateAsync(response);
-                return Ok("yes");
+                return BadRequest("Response from frontend is null");
 
-            }
+            await _generateFilesRepository.CreateAsync(response);
+            return Ok("Template added successfully");
         }
 
         [HttpPut("updateTemplate")]
         public async Task<IActionResult> UpdateTemplate([FromBody] GenerateFiles response)
         {
             if (response == null)
-            {
                 return BadRequest("Response from frontend is null.");
-            }
 
             await _generateFilesRepository.UpdateAsync(response.id, response);
 
-            string fileDirectory = @"C:\New folder\ASP.MongoDb.API";
-            string filePath = Path.Combine(fileDirectory, "output.docx");
+            var fileDirectory = Path.Combine(Directory.GetCurrentDirectory(), "GeneratedFiles");
+            Directory.CreateDirectory(fileDirectory);
+            var filePath = Path.Combine(fileDirectory, "updated.docx");
 
             try
             {
-                // Ensure directory exists
-                if (!Directory.Exists(fileDirectory))
+                using (var wordDoc = WordprocessingDocument.Create(filePath, WordprocessingDocumentType.Document))
                 {
-                    Directory.CreateDirectory(fileDirectory);
+                    var mainPart = wordDoc.AddMainDocumentPart();
+                    mainPart.Document = new Document(new Body(
+                        new Paragraph(new Run(new Text($"Template updated: {response.templateName}")))
+                    ));
+                    mainPart.Document.Save();
                 }
-
-                // Check if file is locked
-                if (System.IO.File.Exists(filePath))
-                {
-                    try
-                    {
-                        using (var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.None))
-                        {
-                            // File is accessible
-                        }
-                    }
-                    catch (IOException)
-                    {
-                        return StatusCode(StatusCodes.Status423Locked, "The file is currently in use by another process.");
-                    }
-                }
-
-                
-                
 
                 return Ok("Template updated and Word file saved successfully.");
             }
@@ -165,20 +131,50 @@ namespace ASP.MongoDb.API.Controllers
         {
             try
             {
-                var fileName = string.IsNullOrWhiteSpace(response.templateName) ? "output.docx" : response.templateName;
-                var filePath = Path.Combine("C:\\New folder\\ASP.MongoDb.API", fileName);
+                var fileName = string.IsNullOrWhiteSpace(response.templateName) ? "output.docx" : response.templateName + ".docx";
+                var fileDirectory = Path.Combine(Directory.GetCurrentDirectory(), "GeneratedFiles");
+                Directory.CreateDirectory(fileDirectory);
+                var filePath = Path.Combine(fileDirectory, fileName);
 
                 using (var wordDoc = WordprocessingDocument.Create(filePath, WordprocessingDocumentType.Document))
                 {
                     var mainPart = wordDoc.AddMainDocumentPart();
                     mainPart.Document = new Document(new Body());
 
-                    foreach (var templateStateObj in response.templateState)
+                    if (response.templateState != null)
                     {
-                        foreach (var child in templateStateObj.children)
+                        foreach (var templateStateObj in response.templateState)
                         {
-                            var paragraph = BuildParagraph(child);
-                            mainPart.Document.Body.Append(paragraph);
+                            if (templateStateObj.children != null)
+                            {
+                                foreach (var child in templateStateObj.children)
+                                {
+                                    if(child.textArea[0].type == "questionary")
+                                    {
+                                       foreach(var questionaryChild in child.textArea)
+                                        {
+                                            foreach(var contextInner in questionaryChild.questionInnerValueChildren.context)
+                                            {
+                                                if(contextInner.questionAnswer == questionaryChild.questionInnerValueChildren.choosedAnswer)
+                                                {
+                                                    foreach(var choosedContextInner in contextInner.answeredQuestionInner)
+                                                    {
+                                                        var paragraph = BuildParagraph(choosedContextInner);
+                                                        mainPart.Document.Body.Append(paragraph);
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                    }
+                                    else
+                                    {
+
+                                        var paragraph = BuildParagraph(child);
+                                    mainPart.Document.Body.Append(paragraph);
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -194,10 +190,32 @@ namespace ASP.MongoDb.API.Controllers
             {
                 return StatusCode(StatusCodes.Status500InternalServerError, $"File access error: {ioEx.Message}");
             }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Unexpected error: {ex.Message}");
+            }
         }
+
         private Paragraph BuildParagraph(templateStructureChildren child)
         {
             var paragraph = new Paragraph();
+
+            //if (textArea.type == "questionary")
+            //{
+            //    foreach (var questionInnerContext in textArea.questionInnerValueChildren.context)
+            //    {
+            //        if (textArea.questionInnerValueChildren.choosedAnswer == questionInnerContext.questionAnswer)
+            //        {
+            //            foreach (var choosedQuestionInner in questionInnerContext.answeredQuestionInner)
+            //            {
+            //                BuildParagraph(choosedQuestionInner);
+            //            }
+            //        }
+            //    }
+
+
+            //}
+
 
             var justification = new Justification
             {
@@ -212,47 +230,55 @@ namespace ASP.MongoDb.API.Controllers
             var pProps = new ParagraphProperties(justification);
             paragraph.AppendChild(pProps);
 
-            foreach (var textArea in child.textArea)
+            if (child.textArea != null)
             {
-                var run = BuildRun(textArea);
-                paragraph.Append(run);
+                foreach (var textArea in child.textArea)
+                {
+                    var run = BuildRun(textArea);
+                    paragraph.Append(run);
+                }
             }
 
             return paragraph;
         }
+
         private Run BuildRun(templateStructureChildrenTextArea textArea)
         {
-            var runProps = new RunProperties
+            var runProps = new RunProperties();
+            
+           
+            if (textArea.className != null)
             {
-                RunFonts = new RunFonts { Ascii = textArea.className.fontFamily },
-                FontSize = new FontSize { Val = ((textArea.className.fontSize ?? 16) * 2).ToString() }
-            };
+                if (!string.IsNullOrEmpty(textArea.className.fontFamily))
+                    runProps.RunFonts = new RunFonts { Ascii = textArea.className.fontFamily };
 
-            if (!string.IsNullOrEmpty(textArea.className.fontColor))
-            {
-                runProps.Color = new DocumentFormat.OpenXml.Wordprocessing.Color
-                {
-                    Val = ConvertColorToHex(textArea.className.fontColor)
-                };
+                runProps.FontSize = new FontSize { Val = ((textArea.className.fontSize ?? 16) * 2).ToString() };
+
+                if (!string.IsNullOrEmpty(textArea.className.fontColor))
+                    runProps.Color = new DocumentFormat.OpenXml.Wordprocessing.Color
+                    {
+                        Val = ConvertColorToHex(textArea.className.fontColor)
+                    };
+
+                if (textArea.className.fontStyle?.bold == true) runProps.Bold = new Bold();
+                if (textArea.className.fontStyle?.italic == true) runProps.Italic = new Italic();
+                if (textArea.className.fontStyle?.underLine == true) runProps.Underline = new Underline { Val = UnderlineValues.Single };
             }
-
-            if (textArea.className.fontStyle.bold) runProps.Bold = new Bold();
-            if (textArea.className.fontStyle.italic) runProps.Italic = new Italic();
-            if (textArea.className.fontStyle.underLine) runProps.Underline = new Underline { Val = UnderlineValues.Single };
 
             var run = new Run(runProps, new Text
             {
-                Text = textArea.value,
+                Text = textArea.value ?? string.Empty,
                 Space = SpaceProcessingModeValues.Preserve
             });
 
             return run;
         }
-        private string ConvertColorToHex(string rgb)
+
+        private string ConvertColorToHex(string colorString)
         {
             try
             {
-                var color = System.Drawing.ColorTranslator.FromHtml(rgb);
+                var color = ParseColor(colorString);
                 return $"{color.R:X2}{color.G:X2}{color.B:X2}";
             }
             catch
@@ -261,5 +287,6 @@ namespace ASP.MongoDb.API.Controllers
             }
         }
 
+        
     }
 }
