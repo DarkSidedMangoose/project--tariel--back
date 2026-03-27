@@ -24,6 +24,70 @@ namespace ASP.MongoDb.API.Controllers
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
             _cache = cache ?? throw new ArgumentNullException(nameof(cache));
         }
+        [HttpPost("eraseSessionToken")]
+        public async Task<IActionResult> EraseSessionToken([FromServices] IDistributedCache cache)
+        {
+            var sessionToken = HttpContext.Request.Cookies["session-token"];
+            if(string.IsNullOrEmpty(sessionToken))
+            {
+                return Unauthorized("session Token is missed from cookies");
+            }
+            
+            var userId = await cache.GetStringAsync($"session:{sessionToken}");
+            if(string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized("sessionToken is missed from redis");
+            }
+
+            await cache.RemoveAsync($"session:{sessionToken}");
+
+            
+                // Remove cookie by setting it with an expired date
+                HttpContext.Response.Cookies.Append("session-token", "", new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.Strict,
+                    Expires = DateTime.UtcNow.AddDays(-1) // Expired in the past
+                });
+               
+            return Ok(new { message = "session token removed succesfully" });
+        } 
+        [HttpPost("updateSessionToken")]
+        public async Task<IActionResult> UpdateSessionToken([FromServices] IDistributedCache cache) 
+
+        {
+            var sessionToken = HttpContext.Request.Cookies["session-token"];
+            if(string.IsNullOrEmpty(sessionToken))
+            {
+                return Unauthorized("Session token Is Missing");
+            }
+            var userId = await cache.GetStringAsync($"session:{sessionToken}");
+            if(userId == null)
+            {
+                return Unauthorized("Session token not found or expired");
+            }
+            await cache.RemoveAsync($"session:{sessionToken}");
+
+            var newToken = Guid.NewGuid().ToString();
+            var expiration = TimeSpan.FromMinutes(30);
+            await cache.SetStringAsync($"session:{newToken}", userId,
+                new DistributedCacheEntryOptions
+                {
+
+                    AbsoluteExpirationRelativeToNow = expiration
+                });
+
+            HttpContext.Response.Cookies.Append("session-token", newToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict, // Adjust as needed
+                Expires = DateTime.UtcNow.Add(expiration)
+            });
+
+            return Ok(new { message= "session token updated succesfully" });
+        }
 
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest loginRequest)

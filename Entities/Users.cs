@@ -10,6 +10,16 @@ namespace ASP.MongoDb.API.Entities
 
         public string? id { get; set; }
         public string? fullname { get; set; }
+        public string? userId { get; set; }
+        public string? dateOfBirth { get; set; }
+        public string? rating { get; set; }
+        public int? giveWarnings { get; set; }
+        public int? amountOfFinedCompanies { get; set; }
+        public int? stoppedCompanyAmount { get; set; }
+        public string? phone { get; set; }
+        public string? email { get; set; }
+        
+
         public string? username { get; set; }
         public string? passwordHash { get; set; }
         public string? role { get; set; }

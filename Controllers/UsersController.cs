@@ -37,6 +37,30 @@ namespace ASP.MongoDb.API.Controllers
             return Ok(user);
         }
 
+        [HttpGet("getUserInfoDetails")]
+        public async Task<IActionResult> GetUserInfoDetails()
+        {
+            var sessionToken = Request.Cookies["session-token"];
+            if(string.IsNullOrEmpty(sessionToken))
+            {
+                return NotFound("Token is Expired");
+
+            }
+            var userId = await _redisExample.GetUserIdBySessionToken(sessionToken);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return NotFound("there is finding user in redis via token problem");
+            }
+            var userInfo = await _repository.GetByIdAsync(userId);
+            if(userInfo == null)
+            {
+                return NotFound("in database that user doesnt exist");
+            }
+
+            return Ok(userInfo);
+        }
+
+
         [HttpGet("getUserInfo")]
         public async Task<IActionResult> GetUserInfo()
         {
@@ -47,7 +71,7 @@ namespace ASP.MongoDb.API.Controllers
             }
             var userId = await _redisExample.GetUserIdBySessionToken(sessionToken);
 
-            if (string.IsNullOrEmpty(sessionToken))
+            if (string.IsNullOrEmpty(userId))
             {
                 return NotFound("Token is expired ");
             }
@@ -68,7 +92,8 @@ namespace ASP.MongoDb.API.Controllers
             {
                 userInfo.id,
                 userInfo.fullname,
-                userInfo.level
+                userInfo.level,
+                userInfo.imgUrl
             };
             return Ok(desireInfo);
 
@@ -158,7 +183,12 @@ namespace ASP.MongoDb.API.Controllers
 
                 user.status = "აქტიური";
 
-                // Call the repository's CreateAsync method to save the user
+            // Call the repository's CreateAsync method to save the user
+
+            user.rating = "5.0";
+            user.giveWarnings = 0;
+            user.amountOfFinedCompanies = 0;
+            user.stoppedCompanyAmount = 0;
 
 
                 await _repository.CreateAsync(user);
