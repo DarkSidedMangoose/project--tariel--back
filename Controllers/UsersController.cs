@@ -37,6 +37,23 @@ namespace ASP.MongoDb.API.Controllers
             return Ok(user);
         }
 
+        [HttpGet("getUserById/{id}")]
+        public async Task<IActionResult> GetUserById(string id)
+        {
+            Console.WriteLine(id);
+            if(string.IsNullOrEmpty(id))
+            {
+                return NotFound("id missed");
+            }
+            var newData = await _repository.GetByIdAsync(id);
+            Console.WriteLine("text");
+            if(newData == null)
+            {
+                return NotFound("there is not that id ");
+            }
+            return Ok(newData);
+        }
+
         [HttpGet("getUserInfoDetails")]
         public async Task<IActionResult> GetUserInfoDetails()
         {
