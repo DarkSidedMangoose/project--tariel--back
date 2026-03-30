@@ -37,6 +37,122 @@ namespace ASP.MongoDb.API.Controllers
             return Ok(user);
         }
 
+
+       
+
+
+        [HttpPost("editUser")]
+        public async Task<IActionResult> EditUserData(Users user)
+        {
+
+
+
+
+            if(user != null )
+            {
+                if(string.IsNullOrEmpty(user.id))
+                {
+                    return NotFound("data doesnt include Id or there is some problem fix it");
+                }else
+                {
+                    if (user.level == 7)
+                    {
+                        user.position = "მთავარი შრომის ინსპექტორი";
+                        user.role = "superAdmin";
+                        user.department = "წვდომა ყველა დეპარტამენტზე";
+                        user.diversion = "წვდომა ყველა სამართველოზე";
+                        user.section = "წვდომა ყველა განყოფილებაზე";
+                    }
+                    else if (user.level == 6)
+                    {
+                        user.role = "admin";
+                        if (user.department == "შრომითი უფლებების ზედამხედველობის დეპარტამენტი")
+                        {
+                            user.position = "მთავარი შრომის ინსპექტორის 1-ლი მოადგილე";
+
+                        }
+                        else
+                        {
+                            user.position = "მთავარი შრომის ინსპექტორის მოადგილე";
+                        }
+                        if (user.department == "შრომითი უფლებების ზედამხედველობის დეპარტამენტი")
+                        {
+                            user.diversion = "წვდომა შრომითი უფლებების ზედამხედველობის ყველა სამართველოზე";
+                            user.section = "წვდომა შრომითი უფლებების ზედამხედველობის ყველა განყოფილებაზე";
+                        }
+                        else
+                        {
+                            user.diversion = "წვდომა შრომის უსაფრთხოებაზე ზედამხედველობის ყველა სამართველოზე";
+                            user.section = "წვდომა შრომის უსაფრთხოებაზე ზედამხედველობის ყველა განყოფილებაზე";
+                        }
+                    }
+                    else if (user.level == 5)
+                    {
+                        user.role = "departmentHead";
+                        user.position = "დეპარტამენტის უფროსი";
+                        if (user.department == "შრომითი უფლებების ზედამხედველობის დეპარტამენტი")
+                        {
+                            user.diversion = "წვდომა შრომითი უფლებების ზედამხედველობის ყველა სამართველოზე";
+                            user.section = "წვდომა შრომითი უფლებების ზედამხედველობის ყველა განყოფილებაზე";
+                        }
+                        else
+                        {
+                            user.diversion = "წვდომა შრომის უსაფრთხოებაზე ზედამხედველობის ყველა სამართველოზე";
+                            user.section = "წვდომა შრომის უსაფრთხოებაზე ზედამხედველობის ყველა განყოფილებაზე";
+                        }
+
+                    }
+                    else if (user.level == 4)
+                    {
+                        user.role = "divisionHead";
+                        user.position = "სამართველოს უფროსი";
+                        user.section = $"წვდომა {user.diversion}-ს ყველა განყოფილებაზე";
+                        if (user.department == "შრომითი უფლებების ზედამხედველობის დეპარტამენტი")
+                        {
+                        }
+                        else
+                        {
+                            user.section = "წვდომა შრომის უსაფრთხოებაზე ზედამხედველობის ყველა განყოფილებაზე";
+                        }
+                    }
+                    else if (user.level == 3)
+                    {
+                        user.role = "groupManager";
+
+                        user.position = "განყოფილების უფროსი";
+                    }
+                    else if (user.level == 2)
+                    {
+                        user.role = "seniorInspector";
+
+                        user.position = "უფროსი შრომის ინსპექტორი";
+                    }
+                    else if (user.level == 1)
+                    {
+                        user.role = "inspector";
+
+                        user.position = "შრომის ინსპექტორი";
+                    }
+
+                    user.status = "აქტიური";
+
+                    // Call the repository's CreateAsync method to save the user
+
+                    user.rating = "5.0";
+                    user.giveWarnings = 0;
+                    user.amountOfFinedCompanies = 0;
+                    user.stoppedCompanyAmount = 0;
+                    await _repository.UpdateAsync(user.id, user);
+
+                }
+            return Ok("user info edit succesfully");
+
+            }else
+            {
+                return NotFound("there is some problem we cant update ");
+            }
+        }
+
         [HttpGet("getUserById/{id}")]
         public async Task<IActionResult> GetUserById(string id)
         {
