@@ -38,10 +38,35 @@ namespace ASP.MongoDb.API.Controllers
         }
 
 
-       
+
+        [HttpGet("checkToken")]
+        public async Task<IActionResult> CheckToken()
+        {
+            var sessionToken = Request.Cookies["session-token"];
+
+            if (sessionToken == null)
+            {
+                Console.WriteLine("i am here");
+                return NotFound("Session token is missing");
+            }
+
+            var userId = await _redisExample.GetUserIdBySessionToken(sessionToken);
+
+            if (userId != null)
+            {
+                
+                    return Ok("Session token found");
+                
+            }
+            else
+            {
+                return NotFound("No user found for this session token");
+            }
+        }
 
 
-        [HttpPost("editUser")]
+
+            [HttpPost("editUser")]
         public async Task<IActionResult> EditUserData(Users user)
         {
 
@@ -134,7 +159,7 @@ namespace ASP.MongoDb.API.Controllers
                         user.position = "შრომის ინსპექტორი";
                     }
 
-                    user.status = "აქტიური";
+                    user.status = user.status;
 
                     // Call the repository's CreateAsync method to save the user
 
