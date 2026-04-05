@@ -18,6 +18,7 @@
     <Compile Remove="Controllers\ValuesController.cs" />
     <Compile Remove="Controllers\ValuesController1.cs" />
     <Compile Remove="Controllers\ValuesController2.cs" />
+    <Compile Remove="Entities\AddTaskRequest - Copy.cs" />
     <Compile Remove="Entities\Class.cs" />
   </ItemGroup>
 

@@ -33,7 +33,7 @@ namespace ASP.MongoDb.API.Entities
             public string? fizPersonIncome { get; set; }
 
             public string? iurPersonIncomeRotation { get; set;}
-            public int? employedCount { get; set; }
+            public int employedCount { get; set; }
         }
 
         public class ActivityForm

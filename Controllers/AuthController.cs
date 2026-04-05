@@ -1,12 +1,13 @@
 ﻿// AuthController.cs
+using ASP.MongoDb.API.Entities;
+using ASP.MongoDb.API.Repository;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
-using Microsoft.IdentityModel.Tokens;
-using ASP.MongoDb.API.Repository;
-using ASP.MongoDb.API.Entities;
-using Microsoft.Extensions.Caching.Distributed;
 
 namespace ASP.MongoDb.API.Controllers
 {
@@ -52,86 +53,82 @@ namespace ASP.MongoDb.API.Controllers
                 });
                
             return Ok(new { message = "session token removed succesfully" });
-        } 
+        }
         [HttpPost("updateSessionToken")]
-        public async Task<IActionResult> UpdateSessionToken([FromServices] IDistributedCache cache) 
-
+        public async Task<IActionResult> UpdateSessionToken([FromServices] IDistributedCache cache)
         {
             var sessionToken = HttpContext.Request.Cookies["session-token"];
-            if(string.IsNullOrEmpty(sessionToken))
+            if (string.IsNullOrEmpty(sessionToken))
             {
-                return Unauthorized("Session token Is Missing");
+                return Unauthorized("Session token is missing");
             }
+
             var userId = await cache.GetStringAsync($"session:{sessionToken}");
-            if(userId == null)
+            if (userId == null)
             {
                 return Unauthorized("Session token not found or expired");
             }
+
             await cache.RemoveAsync($"session:{sessionToken}");
 
-            var newToken = Guid.NewGuid().ToString();
+            // Generate secure session token
+            var newToken = GenerateSecureToken();
             var expiration = TimeSpan.FromMinutes(30);
-            await cache.SetStringAsync($"session:{newToken}", userId,
-                new DistributedCacheEntryOptions
-                {
 
-                    AbsoluteExpirationRelativeToNow = expiration
-                });
+            await cache.SetStringAsync($"session:{newToken}", userId, new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = expiration
+            });
 
             HttpContext.Response.Cookies.Append("session-token", newToken, new CookieOptions
             {
                 HttpOnly = true,
                 Secure = true,
-                SameSite = SameSiteMode.Strict, // Adjust as needed
+                SameSite = SameSiteMode.Strict,
                 Expires = DateTime.UtcNow.Add(expiration)
             });
 
-            return Ok(new { message= "session token updated succesfully" });
+            return Ok(new { message = "Session token updated successfully" });
         }
 
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest loginRequest)
         {
-            
-            // Validate the user's credentials
             var users = await _userRepository.GetAllAsync();
             var user = users.FirstOrDefault(u => u.username == loginRequest.Username);
-            
+
             if (user == null || !BCrypt.Net.BCrypt.Verify(loginRequest.Password, user.passwordHash))
             {
-                
-                return Unauthorized(users);
+                return Unauthorized("Invalid credentials");
+            }
 
-                
-            }
-            //new unique session token
-            var uniqueId = Guid.NewGuid().ToString();
-            
-            // Set the session in Redis
+            // Generate secure session token
+            var uniqueId = GenerateSecureToken();
+
             var expiration = TimeSpan.FromMinutes(30);
-            if(string.IsNullOrEmpty(uniqueId) || string.IsNullOrEmpty(user.id))
-            {
-                return NotFound("user id or unique id is lost");
-            }
             await _cache.SetStringAsync($"session:{uniqueId}", user.id, new DistributedCacheEntryOptions
             {
                 AbsoluteExpirationRelativeToNow = expiration
             });
 
-
             var cookieOptions = new CookieOptions
             {
                 HttpOnly = true,
-                Secure = true, // Use HTTPS in production
-                SameSite = SameSiteMode.Strict, // Adjust as needed
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
                 Expires = DateTime.UtcNow.Add(expiration)
             };
 
             Response.Cookies.Append("session-token", uniqueId, cookieOptions);
 
-
-            return Ok(new { message = "Authentication succesfull" });
-
+            return Ok(new { message = "Authentication successful" });
+        }
+        private string GenerateSecureToken(int size = 32)
+        {
+            // 32 bytes = 256-bit token
+            byte[] tokenBytes = new byte[size];
+            RandomNumberGenerator.Fill(tokenBytes);
+            return Convert.ToBase64String(tokenBytes);
         }
     }
 }
