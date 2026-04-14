@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using ASP.MongoDb.API.Entities;
+﻿using ASP.MongoDb.API.Entities;
 using ASP.MongoDb.API.Models;
 using ASP.MongoDb.API.Repository;
 using ASP.MongoDb.API.Services;
@@ -11,6 +7,11 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.TagHelpers.Cache;
 using Microsoft.AspNetCore.SignalR;
+using MongoDB.Driver;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace ASP.MongoDb.API.Controllers
 {
@@ -35,6 +36,7 @@ namespace ASP.MongoDb.API.Controllers
             _tasksRepository = tasksRepository ?? throw new ArgumentNullException(nameof(tasksRepository));
             _redisExample = redisExample ?? throw new ArgumentNullException(nameof(redisExample));
         }
+
 
         [HttpGet("onGoing")]
         public async Task<IActionResult> GetOnGoing(int skip, int take) => await GetFilteredTasksAsync("onGoing", skip, take);
@@ -88,33 +90,44 @@ namespace ASP.MongoDb.API.Controllers
             public int take { get; set; } 
         }
 
+        
         [HttpPost("getFilteredData")]
         public async Task<IActionResult> GetFilteredData([FromBody] GetFilteredDatas? filteredData)
         {
             if (filteredData == null || filteredData.filterData == null)
                 return BadRequest("there is problem");
 
-            var result = await FetchFilteredTasksAsyncWhole(filteredData.choosedOption);
+            var user = await GetValidUserAsync();
+            if (user == null)
+                return Unauthorized("User not found");
 
-            var filteredTasks = result.Where(t =>
-                (t.objectIdentifierData?.fullName?.Contains(filteredData.filterData.ObjectIdentifierData.FullName) ?? false) &&
-                (t.objectIdentifierData?.identifyCode?.Contains(filteredData.filterData.ObjectIdentifierData.IdentifyCode) ?? false) &&
-                (t.activityForm?.form?.Contains(filteredData.filterData.ActivityForm.Form) ?? false) &&
-                (t.addresses?.region?.Contains(filteredData.filterData.Addresses.Region) ?? false) &&
-                (t.activityinformation?.workingCode?.Contains(filteredData.filterData.ActivityInformation.WorkingCode) ?? false) &&
-                (t.activityinformation?.workingDescription?.Contains(filteredData.filterData.ActivityInformation.WorkingDescription) ?? false) &&
-                filteredData.filterData.PayerInfo.EmployeeMin <= (t.payerInfo?.employedCount ?? 0) &&
-                (t.payerInfo?.employedCount ?? 0) <= filteredData.filterData.PayerInfo.EmployeeMax &&
-                (t.payerInfo?.iurPersonIncomeRotation?.Contains(filteredData.filterData.PayerInfo.IurPersonIncomeRotation) ?? false) &&
-                (t.activityinformation?.riskLevel?.Contains(filteredData.filterData.ActivityInformation.RiskLevel) ?? false) &&
-                (t.addresses?.addressesOfFactActions?.Contains(filteredData.filterData.Addresses.AdressesOfFactActions) ?? false) &&
-                (t.activityForm?.govermentalRegisterDate?.Contains(filteredData.filterData.ActivityForm.GovermentalRegisterDate) ?? false)
-            )
-            .Skip(filteredData.skip)   // skip the first N items
-            .Take(filteredData.take)   // then take the next M items
-            .ToList();
+            // Build MongoDB filter dynamically
+            var filterBuilder = Builders<Tasks>.Filter;
+            var filters = new List<FilterDefinition<Tasks>>();
 
-            var results = filteredTasks.Select(t => new
+            filters.Add(filterBuilder.Eq($"dataFlow.level{user.level}.status", filteredData.choosedOption));
+            filters.Add(filterBuilder.Eq($"dataFlow.level{user.level}.userId", user.id));
+
+            if (!string.IsNullOrEmpty(filteredData.filterData.ObjectIdentifierData.FullName))
+                filters.Add(filterBuilder.Regex("objectIdentifierData.fullName",
+                    new MongoDB.Bson.BsonRegularExpression(filteredData.filterData.ObjectIdentifierData.FullName, "i")));
+
+            if (!string.IsNullOrEmpty(filteredData.filterData.ObjectIdentifierData.IdentifyCode))
+                filters.Add(filterBuilder.Regex("objectIdentifierData.identifyCode",
+                    new MongoDB.Bson.BsonRegularExpression(filteredData.filterData.ObjectIdentifierData.IdentifyCode, "i")));
+
+            // …repeat for other fields (ActivityForm.Form, Addresses.Region, etc.)
+            // For ranges like EmployeeMin/EmployeeMax:
+            filters.Add(filterBuilder.Gte("payerInfo.employedCount", filteredData.filterData.PayerInfo.EmployeeMin));
+            filters.Add(filterBuilder.Lte("payerInfo.employedCount", filteredData.filterData.PayerInfo.EmployeeMax));
+
+            var combinedFilter = filterBuilder.And(filters);
+            var levelString = $"level{user.level}";
+
+            // Call repository with pagination
+            var tasks = await _tasksRepository.GetPagedTasksAsync(combinedFilter, filteredData.skip, filteredData.take, levelString);
+
+            var results = tasks.Select(t => new
             {
                 t.id,
                 t.objectIdentifierData?.identifyCode,
@@ -125,7 +138,7 @@ namespace ASP.MongoDb.API.Controllers
                 t.activityinformation?.workingDescription,
                 t.activityinformation?.riskLevel,
                 t.dataLogs
-            }).ToList();
+            });
 
             return Ok(results);
         }
@@ -141,7 +154,7 @@ namespace ASP.MongoDb.API.Controllers
 
             var usersDedicatedForUser = users
                 .Where(d => d.level == user.level - 1 &&
-                           (d.level == 6 || user.department == null || d.department == user.department))
+                           (d.level == 6  || (d.department == user.department && (d.level == 5 || d.level == 4 )) || (d.department == user.department && d.level == 3 && d.diversion == user.diversion ) || (d.department == user.department && d.level < 3 && d.diversion == user.diversion && d.section == user.section )) ) 
                 .Select(d => new
                 {
                     d.fullname,
@@ -193,6 +206,7 @@ namespace ASP.MongoDb.API.Controllers
                     {
                         senderLevel.userId = currentUser.id;
                         senderLevel.status = "onPending";
+                        senderLevel.timeSpan = DateTime.UtcNow;
                         senderProperty.SetValue(taskById.dataFlow, senderLevel);
                     }
                 }
@@ -206,16 +220,20 @@ namespace ASP.MongoDb.API.Controllers
                         receiverLevel.userId = receiverUser.id;
                         receiverLevel.status = "onGoing";
                         receiverLevel.fromUserId = currentUser.id;
+                        receiverLevel.timeSpan = DateTime.UtcNow;
                         receiverProperty.SetValue(taskById.dataFlow, receiverLevel);
                     }
                 }
 
                 taskById.dataLogs ??= new List<Tasks.TaskLogEntry>(); // ensure list is initialized
 
+                var georgiaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Georgian Standard Time");
+                var georgiaTime = TimeZoneInfo.ConvertTime(DateTime.Now, georgiaTimeZone);
+
                 taskById.dataLogs.Add(new Tasks.TaskLogEntry
                 {
                     level = currentUser.level,
-                    timestamp = DateTime.Now.ToString("o"),
+                    timestamp = georgiaTime.ToString("M/d/yyyy, h:mm:ss tt"),
                     addedByName = currentUser.fullname,
                     addedById = currentUser.id,
                     description = "დავალების გაცემა",
@@ -266,6 +284,7 @@ namespace ASP.MongoDb.API.Controllers
                 if (senderProperty?.GetValue(taskById.dataFlow) is Tasks.Level senderLevel)
                 {
                     senderLevel.status = "waitApproval";
+                    senderLevel.timeSpan = DateTime.UtcNow;
                     senderProperty.SetValue(taskById.dataFlow, senderLevel);
                 }
 
@@ -273,8 +292,11 @@ namespace ASP.MongoDb.API.Controllers
                 if (receiverProperty?.GetValue(taskById.dataFlow) is Tasks.Level receiverLevelValue)
                 {
                     receiverLevelValue.status = "receiveApproval";
+                    receiverLevelValue.timeSpan = DateTime.UtcNow;
                     receiverProperty.SetValue(taskById.dataFlow, receiverLevelValue);
 
+                    var georgiaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Georgian Standard Time");
+                    var georgiaTime = TimeZoneInfo.ConvertTime(DateTime.Now, georgiaTimeZone);
                     var receiverUser = await _userRepository.GetByIdAsync(receiverLevelValue.userId);
                     if (receiverUser != null)
                     {
@@ -282,7 +304,7 @@ namespace ASP.MongoDb.API.Controllers
                         taskById.dataLogs.Add(new Tasks.TaskLogEntry
                         {
                             level = userInfo.level,
-                            timestamp = DateTime.Now.ToString("o"),
+                            timestamp = georgiaTime.ToString("M/d/yyyy, h:mm:ss tt"),
                             addedByName = userInfo.fullname,
                             addedById = userInfo.id,
                             description = "დავალების დასრულების მოთხოვნა",
@@ -323,6 +345,7 @@ namespace ASP.MongoDb.API.Controllers
                     {
                         createrLevelValue.userId = request.SecondArgument.id;
                         createrLevelValue.status = "onGoing";
+                        createrLevelValue.timeSpan = DateTime.UtcNow;
                         property.SetValue(task.dataFlow, createrLevelValue);
                     }
                 }
@@ -363,6 +386,7 @@ namespace ASP.MongoDb.API.Controllers
                 if (senderProperty?.GetValue(taskById.dataFlow) is Tasks.Level senderLevel)
                 {
                     senderLevel.status = "onPending";
+                    senderLevel.timeSpan = DateTime.UtcNow;
                     senderProperty.SetValue(taskById.dataFlow, senderLevel);
                 }
 
@@ -370,16 +394,20 @@ namespace ASP.MongoDb.API.Controllers
                 if (receiverProperty?.GetValue(taskById.dataFlow) is Tasks.Level receiverLevelValue)
                 {
                     receiverLevelValue.status = "onGoing";
+                    receiverLevelValue.timeSpan = DateTime.UtcNow;
                     receiverProperty.SetValue(taskById.dataFlow, receiverLevelValue);
+
 
                     var receiverUser = await _userRepository.GetByIdAsync(receiverLevelValue.userId);
                     if (receiverUser != null)
                     {
+                        var georgiaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Georgian Standard Time");
+                        var georgiaTime = TimeZoneInfo.ConvertTime(DateTime.Now, georgiaTimeZone);
                         taskById.dataLogs ??= new List<Tasks.TaskLogEntry>();
                         taskById.dataLogs.Add(new Tasks.TaskLogEntry
                         {
                             level = userInfo.level,
-                            timestamp = DateTime.Now.ToString("o"),
+                            timestamp = georgiaTime.ToString("M/d/yyyy, h:mm:ss tt"),
                             addedByName = userInfo.fullname,
                             addedById = userInfo.id,
                             description = "დავალების დასრულების მოთხოვნის უარყოფა",
@@ -403,70 +431,37 @@ namespace ASP.MongoDb.API.Controllers
             }
         }
 
-        private async Task<List<object>> FetchFilteredTasksAsync(string status, int skip, int take)
-        {
-            var user = await GetValidUserAsync();
-            if (user == null)
-                throw new ArgumentException("userId is missing");
-
-            var tasks = await _tasksRepository.GetAllAsync();
-            var levelPropertyName = $"level{user.level}";
-
-            var filteredTasks = tasks.Where(t =>
-            {
-                var dataFlow = t.dataFlow;
-                var propertyInfo = dataFlow?.GetType().GetProperty(levelPropertyName);
-                var levelData = propertyInfo?.GetValue(dataFlow) as Tasks.Level;
-
-                return levelData != null &&
-                       levelData.status == status &&
-                       levelData.userId == user.id;
-            })
-            .Skip(skip)   // skip the first N items
-            .Take(take)   // then take the next M items
-            .ToList();
-
-            var result = filteredTasks.Select(t => (object)new
-            {
-                t.id,
-                t.objectIdentifierData?.identifyCode,
-                t.objectIdentifierData?.fullName,
-                t.addresses?.region,
-                t.addresses?.factAddress,
-                t.payerInfo?.iurPersonIncomeRotation,
-                t.activityinformation?.workingDescription,
-                t.activityinformation?.riskLevel,
-                t.dataLogs
-            }).ToList();
-
-            return result;
-        }
-
-        private async Task<List<Tasks>> FetchFilteredTasksAsyncWhole(string status)
-        {
-            var user = await GetValidUserAsync();
-            if (user == null)
-                throw new ArgumentException("userId is missing");
-
-            var tasks = await _tasksRepository.GetAllAsync();
-            var levelPropertyName = $"level{user.level}";
-
-            return tasks.Where(t =>
-            {
-                var dataFlow = t.dataFlow;
-                var propertyInfo = dataFlow?.GetType().GetProperty(levelPropertyName);
-                var levelData = propertyInfo?.GetValue(dataFlow) as Tasks.Level;
-
-                return levelData != null &&
-                       levelData.status == status &&
-                       levelData.userId == user.id;
-            }).ToList();
-        }
+       
 
         private async Task<IActionResult> GetFilteredTasksAsync(string status, int skip, int take)
         {
-            var result = await FetchFilteredTasksAsync(status, skip, take);
-            return Ok(result);
+            {
+                var user = await GetValidUserAsync();
+                if (user == null)
+                    return Unauthorized("userId is missing");
+
+                var levelString = $"level{user.level}";
+
+                var filter = Builders<Tasks>.Filter.Eq($"dataFlow.level{user.level}.status", status) &
+                             Builders<Tasks>.Filter.Eq($"dataFlow.level{user.level}.userId", user.id);
+
+                var tasks = await _tasksRepository.GetPagedTasksAsync(filter, skip, take, levelString);
+
+                var result = tasks.Select(t => new
+                {
+                    t.id,
+                    t.objectIdentifierData?.identifyCode,
+                    t.objectIdentifierData?.fullName,
+                    t.addresses?.region,
+                    t.addresses?.factAddress,
+                    t.payerInfo?.iurPersonIncomeRotation,
+                    t.activityinformation?.workingDescription,
+                    t.activityinformation?.riskLevel,
+                    t.dataLogs
+                });
+
+                return Ok(result);
+            }
         }
 
         public async Task SendData(string userId)

@@ -8,7 +8,7 @@ namespace ASP.MongoDb.API.Repository
 {
     public class Repository<T> : IRepository<T> where T : class
     {
-        private readonly IMongoCollection<T> _collection;
+        protected readonly IMongoCollection<T> _collection;
 
         public Repository(MongoClient client, IOptions<MongoDbSettings> settings)
         {
@@ -22,6 +22,16 @@ namespace ASP.MongoDb.API.Repository
         {
             // Find all documents and convert the result to a list
             return await _collection.Find(_ => true).ToListAsync();
+        }
+
+        public async Task<IEnumerable<T>> GetPagedAsync(FilterDefinition<T> filter, int skip, int take)
+        {
+            return await _collection
+                .Find(filter)
+                .Sort(Builders<T>.Sort.Descending("_id"))
+                .Skip(skip)
+                .Limit(take)
+                .ToListAsync();
         }
 
         public async Task<T?> GetByIdAsync(string id)

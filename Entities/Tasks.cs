@@ -95,6 +95,7 @@ namespace ASP.MongoDb.API.Entities
             public string? userId { get; set; }
             public string? status { get; set; }
             public string? fromUserId { get; set; }
+            public DateTime? timeSpan { get; set; }
         }
     }
 }
