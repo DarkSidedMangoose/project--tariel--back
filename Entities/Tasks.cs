@@ -8,16 +8,18 @@ namespace ASP.MongoDb.API.Entities
         [BsonId]
         [BsonRepresentation(MongoDB.Bson.BsonType.ObjectId)]
 
-        public string? id {  get; set; }
-       
+        public string? id { get; set; }
+
         public ObjectIdentifierData? objectIdentifierData { get; set; }
-        public Levels? dataFlow {  get; set; }
+        public Levels? dataFlow { get; set; }
         public List<TaskLogEntry>? dataLogs { get; set; } = new List<TaskLogEntry>();
         public Addresses? addresses { get; set; }
         public Activityinformation? activityinformation { get; set; }
         public ActivityForm? activityForm { get; set; }
-        
+
         public TaxPayerInfo? payerInfo { get; set; }
+
+        public List<TaskAttachedData>? taskAttachedData {get; set;}
 
 
         public class ObjectIdentifierData
@@ -96,6 +98,15 @@ namespace ASP.MongoDb.API.Entities
             public string? status { get; set; }
             public string? fromUserId { get; set; }
             public DateTime? timeSpan { get; set; }
+        }
+
+        public class TaskAttachedData
+        {
+            public DateTime timeSpan { get; set; }
+            public string type { get; set; }
+            public string url { get; set; }
+            public string fileName { get; set; }
+            
         }
     }
 }

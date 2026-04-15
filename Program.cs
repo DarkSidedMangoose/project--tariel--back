@@ -3,6 +3,7 @@ using ASP.MongoDb.API.Repository;
 using ASP.MongoDb.API.Services;
 using ASP.MongoDb.API.Settings;
 using ASP.MongoDb.API.SignalIR;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
@@ -27,7 +28,14 @@ builder.Services.AddSession(options =>
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // Enforce secure cookies
 });
 
+// Allow large file uploads (vidaos up to 1 GB)
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 1073741824; // 1 GB
+});
+
 // Register Repositories and Other Services
+builder.Services.AddScoped<IFileService, FileService>();
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped<IGenerateFilesRepository, GenerateFilesRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();

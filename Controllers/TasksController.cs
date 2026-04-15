@@ -7,11 +7,13 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.TagHelpers.Cache;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.StaticFiles;
 using MongoDB.Driver;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using static ASP.MongoDb.API.Entities.Tasks;
 
 namespace ASP.MongoDb.API.Controllers
 {
@@ -24,17 +26,23 @@ namespace ASP.MongoDb.API.Controllers
         private readonly IUserRepository _userRepository;
         private readonly ITasksRepository _tasksRepository;
         private readonly RedisExample _redisExample;
+        private readonly IFileService _fileService;
+
+        
 
         public TasksController(
             ITasksRepository tasksRepository,
             IUserRepository userRepository,
             IHubContext<NotificationHub> hubContext,
-            RedisExample redisExample)
+            RedisExample redisExample,
+            IFileService fileService)
+           
         {
             _hubContext = hubContext ?? throw new ArgumentNullException(nameof(hubContext));
             _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
             _tasksRepository = tasksRepository ?? throw new ArgumentNullException(nameof(tasksRepository));
             _redisExample = redisExample ?? throw new ArgumentNullException(nameof(redisExample));
+            _fileService = fileService ?? throw new ArgumentNullException(nameof(fileService));
         }
 
 
@@ -353,6 +361,116 @@ namespace ASP.MongoDb.API.Controllers
 
             await _tasksRepository.CreateAsync(task!);
             return Ok("data has upload succesfully");
+        }
+
+        [RequestSizeLimit(1073741824)]
+        [HttpPost("upload")]
+        public async Task<IActionResult> UploadFile([FromForm] IFormFile file, [FromForm] string id)
+        {
+            if (file == null || file.Length == 0 || string.IsNullOrEmpty(id))
+                return BadRequest("No file uploaded.");
+
+            // Decide subfolder based on file type
+            string subFolder;
+            if (file.ContentType.StartsWith("image") || file.ContentType.StartsWith("video"))
+            {
+                subFolder = "image-videos";
+            }
+            else if (file.ContentType == "application/msword" ||
+                     file.ContentType == "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+            {
+                subFolder = "words";
+            }
+            else
+            {
+                subFolder = "others"; // fallback for unsupported types
+            }
+
+            // Use FileService to get target folder (instead of hardcoding Desktop)
+            var targetFolder = _fileService.GetTargetFolder(subFolder);
+
+            // Generate unique filename
+            var uniqueFileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
+            var filePath = Path.Combine(targetFolder, uniqueFileName);
+
+            var currentTask = await _tasksRepository.GetByIdAsync(id);
+            if (currentTask == null)
+                return BadRequest("We can't find that task");
+
+            try
+            {
+                // Stream file directly to disk (efficient for large files)
+                await using var stream = System.IO.File.Create(filePath);
+                await file.CopyToAsync(stream);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"File save failed: {ex.Message}");
+            }
+
+            // Build attachment metadata
+            var attachmentData = new TaskAttachedData
+            {
+                timeSpan = DateTime.UtcNow,
+                type = subFolder,
+                url = Path.Combine(subFolder, uniqueFileName).Replace("\\", "/"), // normalize to forward slashes     
+                fileName = file.FileName // original name
+            };
+
+            currentTask.taskAttachedData.Add(attachmentData);
+
+            await _tasksRepository.UpdateAsync(id, currentTask);
+
+            return Ok(new { filePath, attachments = currentTask.taskAttachedData });
+        }
+        [HttpGet("download")]
+        public async Task<IActionResult> DownloadFile([FromQuery] string url)
+        {
+            if (string.IsNullOrWhiteSpace(url))
+                return BadRequest("URL parameter is required.");
+
+            // Reconstruct the full physical path
+            var filePath = _fileService.GetFullFilePath(url);   // ← Important helper (see below)
+
+            // Security: Prevent path traversal attacks
+            if (!System.IO.File.Exists(filePath))
+                return NotFound("File not found.");
+
+            // Optional: Check if the current user has access to this task/attachment
+            // Example: await CheckTaskAccessAsync(url);  // implement if needed
+
+            var fileName = Path.GetFileName(url); // or fetch original fileName from DB if you prefer
+
+            try
+            {
+                // PhysicalFileResult is the most efficient for files on disk
+                return PhysicalFile(filePath, _fileService.GetContentType(filePath), fileName);
+            }
+            catch (Exception ex)
+            {
+                // Log the exception in production
+                return StatusCode(500, $"Download failed: {ex.Message}");
+            }
+        }
+
+
+
+        [HttpGet("getTaskDocuments")]
+        public async Task<IActionResult> GetTaskDocuments([FromQuery] string id)
+        {
+            if (string.IsNullOrEmpty(id))
+                return BadRequest("we have error to get Task id");
+
+            var c = await _tasksRepository.GetByIdAsync(id);
+            if (c == null)
+                return BadRequest("task with that id is not in database");
+
+
+            var documents = c.taskAttachedData;
+            if (documents == null)
+                return BadRequest("there is problem");
+
+            return Ok(documents);
         }
 
         [HttpPut("declineTask")]
