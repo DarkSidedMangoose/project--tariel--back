@@ -7,45 +7,62 @@
         public FileService(IConfiguration config)
         {
             _basePath = config["Storage:BasePath"]
-                ?? throw new ArgumentNullException(nameof(config), "Storage:BasePath is not configured in appsettings.json");
+                ?? throw new ArgumentNullException(nameof(config), "Storage:BasePath არ არის კონფიგურირებული appsettings.json-ში");
         }
 
+        /// აბრუნებს სამიზნე საქაღალდეს ქვეფოლდერის მიხედვით
         public string GetTargetFolder(string subFolder)
         {
             var folder = Path.Combine(_basePath, subFolder);
-            Directory.CreateDirectory(folder);   // creates folder if it doesn't exist
+            Directory.CreateDirectory(folder); // ქმნის საქაღალდეს, თუ არ არსებობს
             return folder;
         }
 
-        // ====================== NEW METHODS ======================
-
-        /// <summary>
-        /// Reconstructs the full physical path from the stored relative URL
-        /// Example: "image-videos/xxxxxxxx-xxxx.jpg" → "C:\Storage\image-videos\xxxxxxxx-xxxx.jpg"
-        /// </summary>
+        /// აღადგენს სრულ ფიზიკურ გზას შენახული შედარებითი URL-დან
+        /// მაგალითი: "image-videos/xxx.jpg" =>  "C:\Storage\image-videos\xxx.jpg"
         public string GetFullFilePath(string relativeUrl)
         {
             if (string.IsNullOrWhiteSpace(relativeUrl))
-                throw new ArgumentException("Relative URL cannot be empty.");
+                throw new ArgumentException("შედარებითი URL არ უნდა იყოს ცარიელი.");
 
-            // Normalize path and remove dangerous patterns
+            // ნორმალიზაცია და სახიფათო სიმბოლოების გაფილტვრა
             var cleanPath = relativeUrl.Replace("\\", "/").TrimStart('/');
 
-            // SECURITY: Prevent path traversal attacks (.. / \ : etc.)
+            // უსაფრთხოება: გზის ტრავერსალის (path traversal) თავიდან აცილება
             if (cleanPath.Contains("..") ||
                 cleanPath.StartsWith("/") ||
                 cleanPath.Contains(":") ||
                 cleanPath.Contains("\\"))
             {
-                throw new ArgumentException("Invalid file path.");
+                throw new ArgumentException("არასწორი ფაილის გზა.");
             }
 
             return Path.Combine(_basePath, cleanPath);
         }
 
-        /// <summary>
-        /// Returns correct MIME type for the browser
-        /// </summary>
+        /// შლის ფაილს სერვერიდან  URL-ის მიხედვით
+        public bool DeleteFile(string relativeUrl)
+        {
+            if (string.IsNullOrWhiteSpace(relativeUrl))
+                return false;
+
+            try
+            {
+                var fullPath = GetFullFilePath(relativeUrl);
+
+                if (!File.Exists(fullPath))
+                    return true; // ფაილი უკვე არ არსებობს → წაშლილად ჩაეთვლება
+
+                File.Delete(fullPath);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                return false;
+            }
+        }
+
+        /// აბრუნებს სწორ MIME ტიპს ბრაუზერისთვის
         public string GetContentType(string filePath)
         {
             var extension = Path.GetExtension(filePath).ToLowerInvariant();

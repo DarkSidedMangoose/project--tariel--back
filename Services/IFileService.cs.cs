@@ -5,6 +5,7 @@
         string GetTargetFolder(string subFolder);
         string GetFullFilePath(string relativeUrl);
         string GetContentType(string filePath);
+        bool DeleteFile(string relativeUrl);
 
     }
 }
