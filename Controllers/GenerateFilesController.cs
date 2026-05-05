@@ -262,7 +262,7 @@ namespace ASP.MongoDb.API.Controllers
 
                 if (textArea.className.fontStyle?.bold == true) runProps.Bold = new Bold();
                 if (textArea.className.fontStyle?.italic == true) runProps.Italic = new Italic();
-                if (textArea.className.fontStyle?.underLine == true) runProps.Underline = new Underline { Val = UnderlineValues.Single };
+                if (textArea.className.fontStyle?.underline == true) runProps.Underline = new Underline { Val = UnderlineValues.Single };
             }
 
             var run = new Run(runProps, new Text
