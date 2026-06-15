@@ -2,8 +2,21 @@
 {
     public class AddTaskRequest
     {
-        public Tasks FirstArgument { get; set; }
+        public FirstArgumentClass FirstArgument { get; set; }
         public AuthenticatedUserInfo SecondArgument { get; set; }
+    }
+
+    public class FirstArgumentClass { 
+        public AddNew? addNew { get; set; }
+        public Tasks.Levels? dataFlow { get; set; }
+    }
+
+    public class AddNew {
+        public string workingCode { get; set; }
+     public string convicted { get; set; }
+        public string registerDate { get; set; }
+        public string lawyer { get; set; }
+    
     }
 
     public class AuthenticatedUserInfo

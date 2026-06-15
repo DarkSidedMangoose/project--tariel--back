@@ -196,13 +196,9 @@ namespace ASP.MongoDb.API.Controllers
             var results = tasks.Select(t => new
             {
                 t.id,
-                t.objectIdentifierData?.identifyCode,
-                t.objectIdentifierData?.fullName,
-                t.addresses?.region,
-                t.addresses?.factAddress,
-                t.payerInfo?.iurPersonIncomeRotation,
-                t.activityinformation?.workingDescription,
-                t.activityinformation?.riskLevel,
+                t.workingCode,
+                t.convicted,
+                t.lawyer,
                 t.dataLogs
             });
 
@@ -358,11 +354,7 @@ namespace ASP.MongoDb.API.Controllers
                      {
                         taskById.dataFlow.level1,
                         taskById.dataFlow.level2,
-                        taskById.dataFlow.level3,
-                        taskById.dataFlow.level4,
-                        taskById.dataFlow.level5,
-                        taskById.dataFlow.level6,
-                        taskById.dataFlow.level7
+                        
                     };
 
                     foreach (var level in levels)
@@ -446,12 +438,13 @@ namespace ASP.MongoDb.API.Controllers
         [HttpPost("addNewTask")]
         public async Task<IActionResult> AddNewTask([FromBody] AddTaskRequest? request)
         {
+
             if (request?.FirstArgument == null)
                 return BadRequest("Problem Tasks is null");
 
             var task = request.FirstArgument;
             var userLevel = $"level{request.SecondArgument.level}";
-
+            
             if (task?.dataFlow != null)
             {
                 var property = task.dataFlow.GetType().GetProperty(userLevel);
@@ -467,7 +460,19 @@ namespace ASP.MongoDb.API.Controllers
                 }
             }
 
-            await _tasksRepository.CreateAsync(task!);
+            var wholeData = new Tasks
+            {
+                id = Guid.NewGuid().ToString(),
+                workingCode = task.addNew.workingCode,
+                convicted = task.addNew.convicted,
+                lawyer = task.addNew.lawyer,
+                registerDate = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+                dataFlow= task.dataFlow
+
+
+            };
+
+            await _tasksRepository.CreateAsync(wholeData!);
             return Ok("data has upload succesfully");
         }
 
@@ -745,20 +750,17 @@ namespace ASP.MongoDb.API.Controllers
 
             var tasks = await _tasksRepository.GetPagedTasksAsync(filter, skip, take, $"level{user.level}");
 
-            var result = tasks.Select(t => new
+            var results = tasks.Select(t => new
             {
                 t.id,
-                t.objectIdentifierData?.identifyCode,
-                t.objectIdentifierData?.fullName,
-                t.addresses?.region,
-                t.addresses?.factAddress,
-                t.payerInfo?.iurPersonIncomeRotation,
-                t.activityinformation?.workingDescription,
-                t.activityinformation?.riskLevel,
+                t.workingCode,
+                t.convicted,
+                t.lawyer,
+                t.registerDate,
                 t.dataLogs
             });
 
-            return Ok(result);
+            return Ok(results);
         }
 
         /// SignalR-ის საშუალებით აგზავნის განახლების შეტყობინებას მითითებულ მომხმარებელთან
