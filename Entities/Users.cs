@@ -13,9 +13,8 @@ namespace ASP.MongoDb.API.Entities
         public string? userId { get; set; }
         public string? dateOfBirth { get; set; }
         public string? rating { get; set; }
-        public int? giveWarnings { get; set; }
-        public int? amountOfFinedCompanies { get; set; }
-        public int? stoppedCompanyAmount { get; set; }
+        public int? amountOfFinishedTasks { get; set; }
+        public int? amountOfOnGoingTasks { get; set; }
         public string? phone { get; set; }
         public string? email { get; set; }
         
@@ -23,12 +22,9 @@ namespace ASP.MongoDb.API.Entities
         public string? username { get; set; }
         public string? passwordHash { get; set; }
         public string? role { get; set; }
-        public string? diversion { get; set; }
         public string? position { get; set; }
         public int level { get; set; }
         public string? imgUrl { get; set; }
-        public string? department { get; set; }
         public string? status { get; set; }
-        public string? section { get; set; }
     }
 }

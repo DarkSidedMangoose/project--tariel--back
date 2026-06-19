@@ -8,7 +8,6 @@
 
     public class FirstArgumentClass { 
         public AddNew? addNew { get; set; }
-        public Tasks.Levels? dataFlow { get; set; }
     }
 
     public class AddNew {

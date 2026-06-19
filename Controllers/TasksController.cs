@@ -42,26 +42,17 @@ namespace ASP.MongoDb.API.Controllers
 
         [HttpGet("finished")]
         public async Task<IActionResult> GetOnFinished(int skip, int take)
-            => await GetFilteredTasksAsync("finished", skip, take);
+        {
+            return await GetFilteredTasksAsync(false, skip, take);
+
+        }
         /// აბრუნებს მიმდინარე დავალებებს (onGoing)
         [HttpGet("onGoing")]
         public async Task<IActionResult> GetOnGoing(int skip, int take)
-            => await GetFilteredTasksAsync("onGoing", skip, take);
+            => await GetFilteredTasksAsync(true, skip, take);
 
         /// აბრუნებს მომლოდინე დავალებებს (onPending)
-        [HttpGet("onPending")]
-        public async Task<IActionResult> GetOnPending(int skip, int take)
-            => await GetFilteredTasksAsync("onPending", skip, take);
-
-        /// აბრუნებს დავალებებს, რომლებიც საჭიროებს დამტკიცებას (receiveApproval)
-        [HttpGet("receiveApproval")]
-        public async Task<IActionResult> GetReceiveApproval(int skip, int take)
-            => await GetFilteredTasksAsync("receiveApproval", skip, take);
-
-        /// აბრუნებს დავალებებს, რომლებიც ელოდება დამტკიცებას (waitApproval)
-        [HttpGet("waitApproval")]
-        public async Task<IActionResult> GetWaitApproval(int skip, int take)
-            => await GetFilteredTasksAsync("waitApproval", skip, take);
+       
 
         /// აბრუნებს ბოლო ლოგის გამგზავნისა და მიმღების სახელებს კომენტარისთვის
         [HttpGet("getCommentDesireDatas")]
@@ -120,84 +111,55 @@ namespace ASP.MongoDb.API.Controllers
             var filterBuilder = Builders<Tasks>.Filter;
             var filters = new List<FilterDefinition<Tasks>>();
 
-            // ძირითადი ფილტრები მომხმარებლის დონის მიხედვით
-            filters.Add(filterBuilder.Eq($"dataFlow.level{user.level}.status", filteredData.choosedOption));
-            filters.Add(filterBuilder.Eq($"dataFlow.level{user.level}.userId", user.id));
+            // User-level filters (status + userId)
+            if(filteredData.choosedOption == "finished")
+            {
+                Console.WriteLine(filteredData.skip);
+            filters.Add(filterBuilder.Eq("status", false));
+            }else
+            {
+                Console.WriteLine(filteredData.skip);
+
+                filters.Add(filterBuilder.Eq("status", true));
+
+            }
 
 
-            // User-level filters
-            filters.Add(filterBuilder.Eq($"dataFlow.level{user.level}.status", filteredData.choosedOption));
-            filters.Add(filterBuilder.Eq($"dataFlow.level{user.level}.userId", user.id));
+            // WorkingCode
+            if (!string.IsNullOrEmpty(filteredData.filterData.datas.workingCode))
+                filters.Add(filterBuilder.Regex("workingCode",
+                    new BsonRegularExpression(filteredData.filterData.datas.workingCode, "i")));
 
-            // ObjectIdentifierData
-            if (!string.IsNullOrEmpty(filteredData.filterData.ObjectIdentifierData.FullName))
-                filters.Add(filterBuilder.Regex("objectIdentifierData.fullName",
-                    new BsonRegularExpression(filteredData.filterData.ObjectIdentifierData.FullName, "i")));
+            // Convicted
+            if (!string.IsNullOrEmpty(filteredData.filterData.datas.convicted))
+                filters.Add(filterBuilder.Regex("convicted",
+                    new BsonRegularExpression(filteredData.filterData.datas.convicted, "i")));
 
-            if (!string.IsNullOrEmpty(filteredData.filterData.ObjectIdentifierData.IdentifyCode))
-                filters.Add(filterBuilder.Regex("objectIdentifierData.identifyCode",
-                    new BsonRegularExpression(filteredData.filterData.ObjectIdentifierData.IdentifyCode, "i")));
+            // RegisterDate
+            if (!string.IsNullOrEmpty(filteredData.filterData.datas.registerDate))
+                filters.Add(filterBuilder.Regex("registerDate",
+                    new BsonRegularExpression(filteredData.filterData.datas.registerDate, "i")));
 
-
-            // Addresses
-            if (!string.IsNullOrEmpty(filteredData.filterData.Addresses.Region))
-                filters.Add(filterBuilder.Regex("addresses.region",
-                    new BsonRegularExpression(filteredData.filterData.Addresses.Region, "i")));
-
-            
-
-            // ActivityInformation
-            if (!string.IsNullOrEmpty(filteredData.filterData.ActivityInformation.WorkingCode))
-                filters.Add(filterBuilder.Regex("activityinformation.workingCode",
-                    new BsonRegularExpression(filteredData.filterData.ActivityInformation.WorkingCode, "i")));
-
-            if (!string.IsNullOrEmpty(filteredData.filterData.ActivityInformation.WorkingDescription))
-                filters.Add(filterBuilder.Regex("activityinformation.workingDescription",
-                    new BsonRegularExpression(filteredData.filterData.ActivityInformation.WorkingDescription, "i")));
-
-      
-
-            if (!string.IsNullOrEmpty(filteredData.filterData.ActivityInformation.RiskLevel))
-                filters.Add(filterBuilder.Regex("activityinformation.riskLevel",
-                    new BsonRegularExpression(filteredData.filterData.ActivityInformation.RiskLevel, "i")));
-
-            // ActivityForm
-           ;
-
-            if (!string.IsNullOrEmpty(filteredData.filterData.ActivityForm.Form))
-                filters.Add(filterBuilder.Regex("activityForm.form",
-                    new BsonRegularExpression(filteredData.filterData.ActivityForm.Form, "i")));
-
-            Console.WriteLine(filteredData.filterData.Addresses.AdressesOfFactActions);
-            
-            if (!string.IsNullOrEmpty(filteredData.filterData.ActivityForm.GovermentalRegisterDate))
-                filters.Add(filterBuilder.Regex("activityForm.govermentalRegisterDate",
-                    new BsonRegularExpression(filteredData.filterData.ActivityForm.GovermentalRegisterDate, "i")));
-
-            if (!string.IsNullOrEmpty(filteredData.filterData.Addresses.AdressesOfFactActions))
-                filters.Add(filterBuilder.Regex("addresses.addressesOfFactActions",
-                    new BsonRegularExpression(filteredData.filterData.Addresses.AdressesOfFactActions, "i")));
-
-
-            // PayerInfo
-
-
-            if (!string.IsNullOrEmpty(filteredData.filterData.PayerInfo.IurPersonIncomeRotation))
-                filters.Add(filterBuilder.Regex("payerInfo.iurPersonIncomeRotation",
-                    new BsonRegularExpression(filteredData.filterData.PayerInfo.IurPersonIncomeRotation, "i")));
-
-            filters.Add(filterBuilder.Gte("payerInfo.employedCount", filteredData.filterData.PayerInfo.EmployeeMin));
-            filters.Add(filterBuilder.Lte("payerInfo.employedCount", filteredData.filterData.PayerInfo.EmployeeMax));
+            // Lawyer
+            if (!string.IsNullOrEmpty(filteredData.filterData.datas.lawyer))
+                filters.Add(filterBuilder.Regex("lawyer",
+                    new BsonRegularExpression(filteredData.filterData.datas.lawyer, "i")));
 
             var combinedFilter = filterBuilder.And(filters);
 
-            var tasks = await _tasksRepository.GetPagedTasksAsync(combinedFilter, filteredData.skip, filteredData.take, $"level{user.level}");
+            var tasks = await _tasksRepository.GetPagedTasksAsync(
+                combinedFilter,
+                filteredData.skip,
+                filteredData.take,
+                $"level{user.level}"
+            );
 
             var results = tasks.Select(t => new
             {
                 t.id,
                 t.workingCode,
                 t.convicted,
+                t.registerDate,
                 t.lawyer,
                 t.dataLogs
             });
@@ -205,234 +167,235 @@ namespace ASP.MongoDb.API.Controllers
             return Ok(results);
         }
 
+
         /// <summary>
         /// აბრუნებს იმ მომხმარებლების სიას, ვისთვისაც მიმდინარე მომხმარებელს შეუძლია დავალების გაცემა
         /// </summary>
-        [HttpGet("getUsersForTasks")]
-        public async Task<IActionResult> GetSpecificUsersForGiveTasks()
-        {
-            var user = await GetValidUserAsync();
-            if (user == null)
-                return Unauthorized("Current user is invalid or not authenticated");
+        //[HttpGet("getUsersForTasks")]
+        //public async Task<IActionResult> GetSpecificUsersForGiveTasks()
+        //{
+        //    var user = await GetValidUserAsync();
+        //    if (user == null)
+        //        return Unauthorized("Current user is invalid or not authenticated");
 
-            var users = await _userRepository.GetAllAsync();
+        //    var users = await _userRepository.GetAllAsync();
 
-            var usersDedicatedForUser = users
-                .Where(d => d.level == user.level - 1 &&
-                           (d.level == 6 ||
-                            (d.department == user.department && (d.level == 5 || d.level == 4)) ||
-                            (d.department == user.department && d.level == 3 && d.diversion == user.diversion) ||
-                            (d.department == user.department && d.level < 3 && d.diversion == user.diversion && d.section == user.section)))
-                .Select(d => new
-                {
-                    d.fullname,
-                    d.diversion,
-                    d.imgUrl,
-                    d.id,
-                    d.position,
-                    d.department
-                })
-                .ToList();
+        //    var usersDedicatedForUser = users
+        //        .Where(d => d.level == user.level - 1 &&
+        //                   (d.level == 6 ||
+        //                    (d.department == user.department && (d.level == 5 || d.level == 4)) ||
+        //                    (d.department == user.department && d.level == 3 && d.diversion == user.diversion) ||
+        //                    (d.department == user.department && d.level < 3 && d.diversion == user.diversion && d.section == user.section)))
+        //        .Select(d => new
+        //        {
+        //            d.fullname,
+        //            d.diversion,
+        //            d.imgUrl,
+        //            d.id,
+        //            d.position,
+        //            d.department
+        //        })
+        //        .ToList();
 
-            return Ok(usersDedicatedForUser);
-        }
+        //    return Ok(usersDedicatedForUser);
+        //}
 
         /// <summary>
         /// დავალების გაცემა ერთი მომხმარებლიდან მეორეს
         /// </summary>
-        [HttpPut("giveTask")]
-        public async Task<IActionResult> GiveTask([FromBody] SentTaskRequest? taskRequest)
-        {
-            if (taskRequest == null)
-                return BadRequest("Task request cannot be null");
+        //[HttpPut("giveTask")]
+        //public async Task<IActionResult> GiveTask([FromBody] SentTaskRequest? taskRequest)
+        //{
+        //    if (taskRequest == null)
+        //        return BadRequest("Task request cannot be null");
 
-            var taskId = taskRequest.taskId;
-            var receiverId = taskRequest.receiveUserId;
+        //    var taskId = taskRequest.taskId;
+        //    var receiverId = taskRequest.receiveUserId;
 
-            if (string.IsNullOrEmpty(taskId) || string.IsNullOrEmpty(receiverId))
-                return BadRequest($"TaskId and ReceiverId are required. Received: TaskId={taskId}, ReceiverId={receiverId}");
+        //    if (string.IsNullOrEmpty(taskId) || string.IsNullOrEmpty(receiverId))
+        //        return BadRequest($"TaskId and ReceiverId are required. Received: TaskId={taskId}, ReceiverId={receiverId}");
 
-            try
-            {
-                var currentUser = await GetValidUserAsync();
-                if (currentUser == null)
-                    return Unauthorized("Current User is invalid or Not authenticated");
+        //    try
+        //    {
+        //        var currentUser = await GetValidUserAsync();
+        //        if (currentUser == null)
+        //            return Unauthorized("Current User is invalid or Not authenticated");
 
-                var receiverUser = await _userRepository.GetByIdAsync(receiverId);
-                if (receiverUser == null)
-                    return NotFound($"Receiver user with ID {receiverId} not found");
+        //        var receiverUser = await _userRepository.GetByIdAsync(receiverId);
+        //        if (receiverUser == null)
+        //            return NotFound($"Receiver user with ID {receiverId} not found");
 
-                var taskById = await _tasksRepository.GetByIdAsync(taskId);
-                if (taskById == null)
-                    return NotFound($"The Task with ID {taskId} not found");
+        //        var taskById = await _tasksRepository.GetByIdAsync(taskId);
+        //        if (taskById == null)
+        //            return NotFound($"The Task with ID {taskId} not found");
 
-                var levelOfSender = $"level{currentUser.level}";
-                var levelOfReceiver = $"level{receiverUser.level}";
+        //        var levelOfSender = $"level{currentUser.level}";
+        //        var levelOfReceiver = $"level{receiverUser.level}";
 
-                // გამგზავნის დონის განახლება
-                var senderProperty = taskById.dataFlow.GetType().GetProperty(levelOfSender);
-                if (senderProperty?.GetValue(taskById.dataFlow) is Tasks.Level senderLevel)
-                {
-                    senderLevel.userId = currentUser.id;
-                    senderLevel.status = "onPending";
-                    senderLevel.timeSpan = DateTime.UtcNow;
-                    senderProperty.SetValue(taskById.dataFlow, senderLevel);
-                }
+        //        // გამგზავნის დონის განახლება
+        //        var senderProperty = taskById.dataFlow.GetType().GetProperty(levelOfSender);
+        //        if (senderProperty?.GetValue(taskById.dataFlow) is Tasks.Level senderLevel)
+        //        {
+        //            senderLevel.userId = currentUser.id;
+        //            senderLevel.status = "onPending";
+        //            senderLevel.timeSpan = DateTime.UtcNow;
+        //            senderProperty.SetValue(taskById.dataFlow, senderLevel);
+        //        }
 
-                // მიმღების დონის განახლება
-                var receiverProperty = taskById.dataFlow.GetType().GetProperty(levelOfReceiver);
-                if (receiverProperty?.GetValue(taskById.dataFlow) is Tasks.Level receiverLevel)
-                {
-                    receiverLevel.userId = receiverUser.id;
-                    receiverLevel.status = "onGoing";
-                    receiverLevel.fromUserId = currentUser.id;
-                    receiverLevel.timeSpan = DateTime.UtcNow;
-                    receiverProperty.SetValue(taskById.dataFlow, receiverLevel);
-                }
+        //        // მიმღების დონის განახლება
+        //        var receiverProperty = taskById.dataFlow.GetType().GetProperty(levelOfReceiver);
+        //        if (receiverProperty?.GetValue(taskById.dataFlow) is Tasks.Level receiverLevel)
+        //        {
+        //            receiverLevel.userId = receiverUser.id;
+        //            receiverLevel.status = "onGoing";
+        //            receiverLevel.fromUserId = currentUser.id;
+        //            receiverLevel.timeSpan = DateTime.UtcNow;
+        //            receiverProperty.SetValue(taskById.dataFlow, receiverLevel);
+        //        }
 
-                taskById.dataLogs ??= new List<Tasks.TaskLogEntry>();
+        //        taskById.dataLogs ??= new List<Tasks.TaskLogEntry>();
 
-                var georgiaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Georgian Standard Time");
-                var georgiaTime = TimeZoneInfo.ConvertTime(DateTime.Now, georgiaTimeZone);
+        //        var georgiaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Georgian Standard Time");
+        //        var georgiaTime = TimeZoneInfo.ConvertTime(DateTime.Now, georgiaTimeZone);
 
-                taskById.dataLogs.Add(new Tasks.TaskLogEntry
-                {
-                    level = currentUser.level,
-                    timestamp = georgiaTime.ToString("M/d/yyyy, h:mm:ss tt"),
-                    addedByName = currentUser.fullname,
-                    addedById = currentUser.id,
-                    description = "დავალების გაცემა",
-                    receiverName = receiverUser.fullname,
-                    receiverId = receiverUser.id,
-                    imgUrl = currentUser.imgUrl
-                });
+        //        taskById.dataLogs.Add(new Tasks.TaskLogEntry
+        //        {
+        //            level = currentUser.level,
+        //            timestamp = georgiaTime.ToString("M/d/yyyy, h:mm:ss tt"),
+        //            addedByName = currentUser.fullname,
+        //            addedById = currentUser.id,
+        //            description = "დავალების გაცემა",
+        //            receiverName = receiverUser.fullname,
+        //            receiverId = receiverUser.id,
+        //            imgUrl = currentUser.imgUrl
+        //        });
 
-                await _tasksRepository.UpdateAsync(taskById.id!, taskById);
-                await SendData(receiverUser.id);
+        //        await _tasksRepository.UpdateAsync(taskById.id!, taskById);
+        //        await SendData(receiverUser.id);
 
-                return Ok("everything work well");
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"internal server error: {ex.Message}");
-            }
-        }
+        //        return Ok("everything work well");
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, $"internal server error: {ex.Message}");
+        //    }
+        //}
 
         /// დავალების დასრულება და დამტკიცებისთვის გაგზავნა
-        [HttpPut("endTask")]
-        public async Task<IActionResult> EndTask([FromBody] OverTaskRequest? overtaskRequest)
-        {
-            if (overtaskRequest == null)
-                return BadRequest("Task request cannot be null");
+        //[HttpPut("endTask")]
+        //public async Task<IActionResult> EndTask([FromBody] OverTaskRequest? overtaskRequest)
+        //{
+        //    if (overtaskRequest == null)
+        //        return BadRequest("Task request cannot be null");
 
             
-            try
-            {
-                var georgiaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Georgian Standard Time");
-                var georgiaTime = TimeZoneInfo.ConvertTime(DateTime.Now, georgiaTimeZone);
-                var taskId = overtaskRequest.taskId;
-                if (string.IsNullOrEmpty(taskId))
-                    return BadRequest("TaskId is required");
+        //    try
+        //    {
+        //        var georgiaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Georgian Standard Time");
+        //        var georgiaTime = TimeZoneInfo.ConvertTime(DateTime.Now, georgiaTimeZone);
+        //        var taskId = overtaskRequest.taskId;
+        //        if (string.IsNullOrEmpty(taskId))
+        //            return BadRequest("TaskId is required");
 
-                var taskById = await _tasksRepository.GetByIdAsync(taskId);
-                if (taskById == null)
-                    return NotFound($"Task with ID {taskId} not found");
+        //        var taskById = await _tasksRepository.GetByIdAsync(taskId);
+        //        if (taskById == null)
+        //            return NotFound($"Task with ID {taskId} not found");
 
-                var userId = await getUserIdViaSessionToken();
+        //        var userId = await getUserIdViaSessionToken();
                
-                if (string.IsNullOrEmpty(userId))
-                    return Unauthorized("User ID not found in session");
+        //        if (string.IsNullOrEmpty(userId))
+        //            return Unauthorized("User ID not found in session");
 
 
-                var userInfo = await _userRepository.GetByIdAsync(userId);
-                if (userInfo == null)
-                    return Unauthorized("User information not found");
+        //        var userInfo = await _userRepository.GetByIdAsync(userId);
+        //        if (userInfo == null)
+        //            return Unauthorized("User information not found");
 
-                if (userInfo.level == 7)
-                {
-                    var levels = new[]
-                     {
-                        taskById.dataFlow.level1,
-                        taskById.dataFlow.level2,
+        //        if (userInfo.level == 7)
+        //        {
+        //            var levels = new[]
+        //             {
+        //                taskById.dataFlow.level1,
+        //                taskById.dataFlow.level2,
                         
-                    };
+        //            };
 
-                    foreach (var level in levels)
-                    {
-                        if (level == null)
-                            return BadRequest("One of the levels is missing");
+        //            foreach (var level in levels)
+        //            {
+        //                if (level == null)
+        //                    return BadRequest("One of the levels is missing");
 
-                        level.status = "finished";
-                        level.timeSpan = DateTime.UtcNow;
-                    }
+        //                level.status = "finished";
+        //                level.timeSpan = DateTime.UtcNow;
+        //            }
 
-                    taskById.dataLogs ??= new List<Tasks.TaskLogEntry>();
-                    taskById.dataLogs.Add(new Tasks.TaskLogEntry
-                    {
-                        level = userInfo.level,
-                        timestamp = georgiaTime.ToString("M/d/yyyy, h:mm:ss tt"),
-                        addedByName = userInfo.fullname,
-                        addedById = userInfo.id,
-                        description = "დავალების დასრულება",
-                        imgUrl = userInfo.imgUrl
-                    });
+        //            taskById.dataLogs ??= new List<Tasks.TaskLogEntry>();
+        //            taskById.dataLogs.Add(new Tasks.TaskLogEntry
+        //            {
+        //                level = userInfo.level,
+        //                timestamp = georgiaTime.ToString("M/d/yyyy, h:mm:ss tt"),
+        //                addedByName = userInfo.fullname,
+        //                addedById = userInfo.id,
+        //                description = "დავალების დასრულება",
+        //                imgUrl = userInfo.imgUrl
+        //            });
 
-                    await _tasksRepository.UpdateAsync(taskId, taskById);
-                    return Ok("data succesfully added to finished objects database");
-                }
-                else
-                {
+        //            await _tasksRepository.UpdateAsync(taskId, taskById);
+        //            return Ok("data succesfully added to finished objects database");
+        //        }
+        //        else
+        //        {
 
-                var userLevelStr = $"level{userInfo.level}";
-                var receiverLevelStr = $"level{userInfo.level + 1}";
+        //        var userLevelStr = $"level{userInfo.level}";
+        //        var receiverLevelStr = $"level{userInfo.level + 1}";
 
-                var senderProperty = taskById.dataFlow.GetType().GetProperty(userLevelStr);
-                if (senderProperty?.GetValue(taskById.dataFlow) is Tasks.Level senderLevel)
-                {
-                    senderLevel.status = "waitApproval";
-                    senderLevel.timeSpan = DateTime.UtcNow;
-                    senderProperty.SetValue(taskById.dataFlow, senderLevel);
-                }
+        //        var senderProperty = taskById.dataFlow.GetType().GetProperty(userLevelStr);
+        //        if (senderProperty?.GetValue(taskById.dataFlow) is Tasks.Level senderLevel)
+        //        {
+        //            senderLevel.status = "waitApproval";
+        //            senderLevel.timeSpan = DateTime.UtcNow;
+        //            senderProperty.SetValue(taskById.dataFlow, senderLevel);
+        //        }
 
-                var receiverProperty = taskById.dataFlow.GetType().GetProperty(receiverLevelStr);
-                if (receiverProperty?.GetValue(taskById.dataFlow) is Tasks.Level receiverLevelValue)
-                {
-                    receiverLevelValue.status = "receiveApproval";
-                    receiverLevelValue.timeSpan = DateTime.UtcNow;
-                    receiverProperty.SetValue(taskById.dataFlow, receiverLevelValue);
+        //        var receiverProperty = taskById.dataFlow.GetType().GetProperty(receiverLevelStr);
+        //        if (receiverProperty?.GetValue(taskById.dataFlow) is Tasks.Level receiverLevelValue)
+        //        {
+        //            receiverLevelValue.status = "receiveApproval";
+        //            receiverLevelValue.timeSpan = DateTime.UtcNow;
+        //            receiverProperty.SetValue(taskById.dataFlow, receiverLevelValue);
 
                  
 
-                    var receiverUser = await _userRepository.GetByIdAsync(receiverLevelValue.userId);
-                    if (receiverUser != null)
-                    {
-                        taskById.dataLogs ??= new List<Tasks.TaskLogEntry>();
-                        taskById.dataLogs.Add(new Tasks.TaskLogEntry
-                        {
-                            level = userInfo.level,
-                            timestamp = georgiaTime.ToString("M/d/yyyy, h:mm:ss tt"),
-                            addedByName = userInfo.fullname,
-                            addedById = userInfo.id,
-                            description = "დავალების დასრულების მოთხოვნა",
-                            receiverName = receiverUser.fullname,
-                            receiverId = receiverUser.id,
-                            imgUrl = userInfo.imgUrl
-                        });
-                    }
+        //            var receiverUser = await _userRepository.GetByIdAsync(receiverLevelValue.userId);
+        //            if (receiverUser != null)
+        //            {
+        //                taskById.dataLogs ??= new List<Tasks.TaskLogEntry>();
+        //                taskById.dataLogs.Add(new Tasks.TaskLogEntry
+        //                {
+        //                    level = userInfo.level,
+        //                    timestamp = georgiaTime.ToString("M/d/yyyy, h:mm:ss tt"),
+        //                    addedByName = userInfo.fullname,
+        //                    addedById = userInfo.id,
+        //                    description = "დავალების დასრულების მოთხოვნა",
+        //                    receiverName = receiverUser.fullname,
+        //                    receiverId = receiverUser.id,
+        //                    imgUrl = userInfo.imgUrl
+        //                });
+        //            }
 
-                    await _tasksRepository.UpdateAsync(taskById.id!, taskById);
-                    if (receiverLevelValue.userId != null)
-                        await SendData(receiverLevelValue.userId);
-                    }
-                }
+        //            await _tasksRepository.UpdateAsync(taskById.id!, taskById);
+        //            if (receiverLevelValue.userId != null)
+        //                await SendData(receiverLevelValue.userId);
+        //            }
+        //        }
 
-                return Ok("everything work well");
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"internal server error: {ex.Message}");
-            }
-        }
+        //        return Ok("everything work well");
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, $"internal server error: {ex.Message}");
+        //    }
+        //}
 
         /// ახალი დავალების შექმნა
         [HttpPost("addNewTask")]
@@ -442,32 +405,52 @@ namespace ASP.MongoDb.API.Controllers
             if (request?.FirstArgument == null)
                 return BadRequest("Problem Tasks is null");
 
+            var georgiaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Georgian Standard Time");
+            var georgiaTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, georgiaTimeZone);
+
             var task = request.FirstArgument;
             var userLevel = $"level{request.SecondArgument.level}";
+            var user = await _userRepository.GetByIdAsync(request.SecondArgument.id);
             
-            if (task?.dataFlow != null)
-            {
-                var property = task.dataFlow.GetType().GetProperty(userLevel);
-                if (property != null)
-                {
-                    if (property.GetValue(task.dataFlow) is Tasks.Level createrLevelValue)
-                    {
-                        createrLevelValue.userId = request.SecondArgument.id;
-                        createrLevelValue.status = "onGoing";
-                        createrLevelValue.timeSpan = DateTime.UtcNow;
-                        property.SetValue(task.dataFlow, createrLevelValue);
-                    }
-                }
-            }
+            //if (task?.dataFlow != null)
+            //{
+            //    var property = task.dataFlow.GetType().GetProperty(userLevel);
+            //    if (property != null)
+            //    {
+            //        if (property.GetValue(task.dataFlow) is Tasks.Level createrLevelValue)
+            //        {
+            //            createrLevelValue.userId = request.SecondArgument.id;
+            //            createrLevelValue.status = "onGoing";
+            //            createrLevelValue.timeSpan = DateTime.UtcNow;
+            //            property.SetValue(task.dataFlow, createrLevelValue);
+            //        }
+            //    }
+            //}
 
             var wholeData = new Tasks
             {
-                id = Guid.NewGuid().ToString(),
                 workingCode = task.addNew.workingCode,
                 convicted = task.addNew.convicted,
                 lawyer = task.addNew.lawyer,
-                registerDate = DateTime.UtcNow.ToString("yyyy-MM-dd"),
-                dataFlow= task.dataFlow
+                registerDate = georgiaTime.ToString("yyyy-MM-dd"),
+                status = true,
+                taskAttachedData = [],
+                dataLogs = new List<Tasks.TaskLogEntry>
+    {
+        new Tasks.TaskLogEntry
+        {
+            level = user.level,
+           timestamp = georgiaTime.ToString("yyyy-MM-dd HH:mm:ss"),
+            addedByName = user.fullname,
+            addedById = user.id,
+            description = "საქმის დამატება ბაზაში",
+            receiverName = user.fullname,
+            receiverId = user.id,
+            comment = "საქმე დამატებულია",
+            imgUrl = user.imgUrl
+        },
+       
+    }
 
 
             };
@@ -662,93 +645,98 @@ namespace ASP.MongoDb.API.Controllers
         }
 
         /// დავალების დასრულების მოთხოვნის უარყოფა
-        [HttpPut("declineTask")]
-        public async Task<IActionResult> DeclinedTask([FromBody] DeclineTaskRequest? declineTaskRequest)
-        {
-            if (declineTaskRequest == null)
-                return BadRequest("Task request cannot be null");
+        //[HttpPut("declineTask")]
+        //public async Task<IActionResult> DeclinedTask([FromBody] DeclineTaskRequest? declineTaskRequest)
+        //{
+        //    if (declineTaskRequest == null)
+        //        return BadRequest("Task request cannot be null");
 
-            try
-            {
-                var taskId = declineTaskRequest.taskId;
-                if (string.IsNullOrEmpty(taskId))
-                    return BadRequest("TaskId is required");
+        //    try
+        //    {
+        //        var taskId = declineTaskRequest.taskId;
+        //        if (string.IsNullOrEmpty(taskId))
+        //            return BadRequest("TaskId is required");
 
-                var taskById = await _tasksRepository.GetByIdAsync(taskId);
-                if (taskById == null)
-                    return NotFound($"Task with ID {taskId} not found");
+        //        var taskById = await _tasksRepository.GetByIdAsync(taskId);
+        //        if (taskById == null)
+        //            return NotFound($"Task with ID {taskId} not found");
 
-                var userId = await getUserIdViaSessionToken();
-                if (string.IsNullOrEmpty(userId))
-                    return Unauthorized("User ID not found in session");
+        //        var userId = await getUserIdViaSessionToken();
+        //        if (string.IsNullOrEmpty(userId))
+        //            return Unauthorized("User ID not found in session");
 
-                var userInfo = await _userRepository.GetByIdAsync(userId);
-                if (userInfo == null)
-                    return Unauthorized("User information not found");
+        //        var userInfo = await _userRepository.GetByIdAsync(userId);
+        //        if (userInfo == null)
+        //            return Unauthorized("User information not found");
 
-                var userLevelStr = $"level{userInfo.level}";
-                var receiverLevelStr = $"level{userInfo.level - 1}";
+        //        var userLevelStr = $"level{userInfo.level}";
+        //        var receiverLevelStr = $"level{userInfo.level - 1}";
 
-                var senderProperty = taskById.dataFlow.GetType().GetProperty(userLevelStr);
-                if (senderProperty?.GetValue(taskById.dataFlow) is Tasks.Level senderLevel)
-                {
-                    senderLevel.status = "onPending";
-                    senderLevel.timeSpan = DateTime.UtcNow;
-                    senderProperty.SetValue(taskById.dataFlow, senderLevel);
-                }
+        //        var senderProperty = taskById.dataFlow.GetType().GetProperty(userLevelStr);
+        //        if (senderProperty?.GetValue(taskById.dataFlow) is Tasks.Level senderLevel)
+        //        {
+        //            senderLevel.status = "onPending";
+        //            senderLevel.timeSpan = DateTime.UtcNow;
+        //            senderProperty.SetValue(taskById.dataFlow, senderLevel);
+        //        }
 
-                var receiverProperty = taskById.dataFlow.GetType().GetProperty(receiverLevelStr);
-                if (receiverProperty?.GetValue(taskById.dataFlow) is Tasks.Level receiverLevelValue)
-                {
-                    receiverLevelValue.status = "onGoing";
-                    receiverLevelValue.timeSpan = DateTime.UtcNow;
-                    receiverProperty.SetValue(taskById.dataFlow, receiverLevelValue);
+        //        var receiverProperty = taskById.dataFlow.GetType().GetProperty(receiverLevelStr);
+        //        if (receiverProperty?.GetValue(taskById.dataFlow) is Tasks.Level receiverLevelValue)
+        //        {
+        //            receiverLevelValue.status = "onGoing";
+        //            receiverLevelValue.timeSpan = DateTime.UtcNow;
+        //            receiverProperty.SetValue(taskById.dataFlow, receiverLevelValue);
 
-                    var receiverUser = await _userRepository.GetByIdAsync(receiverLevelValue.userId);
-                    if (receiverUser != null)
-                    {
-                        var georgiaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Georgian Standard Time");
-                        var georgiaTime = TimeZoneInfo.ConvertTime(DateTime.Now, georgiaTimeZone);
+        //            var receiverUser = await _userRepository.GetByIdAsync(receiverLevelValue.userId);
+        //            if (receiverUser != null)
+        //            {
+        //                var georgiaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Georgian Standard Time");
+        //                var georgiaTime = TimeZoneInfo.ConvertTime(DateTime.Now, georgiaTimeZone);
 
-                        taskById.dataLogs ??= new List<Tasks.TaskLogEntry>();
-                        taskById.dataLogs.Add(new Tasks.TaskLogEntry
-                        {
-                            level = userInfo.level,
-                            timestamp = georgiaTime.ToString("M/d/yyyy, h:mm:ss tt"),
-                            addedByName = userInfo.fullname,
-                            addedById = userInfo.id,
-                            description = "დავალების დასრულების მოთხოვნის უარყოფა",
-                            receiverName = receiverUser.fullname,
-                            receiverId = receiverUser.id,
-                            imgUrl = userInfo.imgUrl,
-                            comment = declineTaskRequest.comment
-                        });
-                    }
+        //                taskById.dataLogs ??= new List<Tasks.TaskLogEntry>();
+        //                taskById.dataLogs.Add(new Tasks.TaskLogEntry
+        //                {
+        //                    level = userInfo.level,
+        //                    timestamp = georgiaTime.ToString("M/d/yyyy, h:mm:ss tt"),
+        //                    addedByName = userInfo.fullname,
+        //                    addedById = userInfo.id,
+        //                    description = "დავალების დასრულების მოთხოვნის უარყოფა",
+        //                    receiverName = receiverUser.fullname,
+        //                    receiverId = receiverUser.id,
+        //                    imgUrl = userInfo.imgUrl,
+        //                    comment = declineTaskRequest.comment
+        //                });
+        //            }
 
-                    await _tasksRepository.UpdateAsync(taskById.id!, taskById);
-                    if (receiverLevelValue.userId != null)
-                        await SendData(receiverLevelValue.userId);
-                }
+        //            await _tasksRepository.UpdateAsync(taskById.id!, taskById);
+        //            if (receiverLevelValue.userId != null)
+        //                await SendData(receiverLevelValue.userId);
+        //        }
 
-                return Ok("everything work well");
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"internal server error: {ex.Message}");
-            }
-        }
+        //        return Ok("everything work well");
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, $"internal server error: {ex.Message}");
+        //    }
+        //}
 
         /// შიდა მეთოდი - აბრუნებს დავალებებს სტატუსის მიხედვით (გამოიყენება ზემოთ არსებული Get მეთოდებში)
-        private async Task<IActionResult> GetFilteredTasksAsync(string status, int skip, int take)
+        private async Task<IActionResult> GetFilteredTasksAsync(bool status, int skip, int take)
         {
+            Console.WriteLine(status);
             var user = await GetValidUserAsync();
             if (user == null)
                 return Unauthorized("userId is missing");
 
-            var filter = Builders<Tasks>.Filter.Eq($"dataFlow.level{user.level}.status", status) &
-                         Builders<Tasks>.Filter.Eq($"dataFlow.level{user.level}.userId", user.id);
+            var filterBuilder = Builders<Tasks>.Filter;
+            var filters = new List<FilterDefinition<Tasks>>();
 
-            var tasks = await _tasksRepository.GetPagedTasksAsync(filter, skip, take, $"level{user.level}");
+            filters.Add(filterBuilder.Eq("status", status));
+
+            var combinedFilter = filterBuilder.And(filters);
+
+            var tasks = await _tasksRepository.GetPagedTasksAsync(combinedFilter, skip, take, $"level{user.level}");
 
             var results = tasks.Select(t => new
             {
@@ -762,6 +750,7 @@ namespace ASP.MongoDb.API.Controllers
 
             return Ok(results);
         }
+
 
         /// SignalR-ის საშუალებით აგზავნის განახლების შეტყობინებას მითითებულ მომხმარებელთან
         public async Task SendData(string userId)

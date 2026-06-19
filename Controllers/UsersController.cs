@@ -80,94 +80,24 @@ namespace ASP.MongoDb.API.Controllers
                     return NotFound("data doesnt include Id or there is some problem fix it");
                 }else
                 {
-                    if (user.level == 7)
-                    {
-                        user.position = "მთავარი შრომის ინსპექტორი";
-                        user.role = "superAdmin";
-                        user.department = "წვდომა ყველა დეპარტამენტზე";
-                        user.diversion = "წვდომა ყველა სამართველოზე";
-                        user.section = "წვდომა ყველა განყოფილებაზე";
-                    }
-                    else if (user.level == 6)
-                    {
-                        user.role = "admin";
-                        if (user.department == "შრომითი უფლებების ზედამხედველობის დეპარტამენტი")
-                        {
-                            user.position = "მთავარი შრომის ინსპექტორის 1-ლი მოადგილე";
 
-                        }
-                        else
-                        {
-                            user.position = "მთავარი შრომის ინსპექტორის მოადგილე";
-                        }
-                        if (user.department == "შრომითი უფლებების ზედამხედველობის დეპარტამენტი")
-                        {
-                            user.diversion = "წვდომა შრომითი უფლებების ზედამხედველობის ყველა სამართველოზე";
-                            user.section = "წვდომა შრომითი უფლებების ზედამხედველობის ყველა განყოფილებაზე";
-                        }
-                        else
-                        {
-                            user.diversion = "წვდომა შრომის უსაფრთხოებაზე ზედამხედველობის ყველა სამართველოზე";
-                            user.section = "წვდომა შრომის უსაფრთხოებაზე ზედამხედველობის ყველა განყოფილებაზე";
-                        }
-                    }
-                    else if (user.level == 5)
-                    {
-                        user.role = "departmentHead";
-                        user.position = "დეპარტამენტის უფროსი";
-                        if (user.department == "შრომითი უფლებების ზედამხედველობის დეპარტამენტი")
-                        {
-                            user.diversion = "წვდომა შრომითი უფლებების ზედამხედველობის ყველა სამართველოზე";
-                            user.section = "წვდომა შრომითი უფლებების ზედამხედველობის ყველა განყოფილებაზე";
-                        }
-                        else
-                        {
-                            user.diversion = "წვდომა შრომის უსაფრთხოებაზე ზედამხედველობის ყველა სამართველოზე";
-                            user.section = "წვდომა შრომის უსაფრთხოებაზე ზედამხედველობის ყველა განყოფილებაზე";
-                        }
-
-                    }
-                    else if (user.level == 4)
-                    {
-                        user.role = "divisionHead";
-                        user.position = "სამართველოს უფროსი";
-                        user.section = $"წვდომა {user.diversion}-ს ყველა განყოფილებაზე";
-                        if (user.department == "შრომითი უფლებების ზედამხედველობის დეპარტამენტი")
-                        {
-                        }
-                        else
-                        {
-                            user.section = "წვდომა შრომის უსაფრთხოებაზე ზედამხედველობის ყველა განყოფილებაზე";
-                        }
-                    }
-                    else if (user.level == 3)
-                    {
-                        user.role = "groupManager";
-
-                        user.position = "განყოფილების უფროსი";
-                    }
-                    else if (user.level == 2)
-                    {
-                        user.role = "seniorInspector";
-
-                        user.position = "უფროსი შრომის ინსპექტორი";
-                    }
-                    else if (user.level == 1)
-                    {
-                        user.role = "inspector";
-
-                        user.position = "შრომის ინსპექტორი";
-                    }
-
-                    user.status = user.status;
-
+                    var currentUser = await _repository.GetByIdAsync(user.id);
                     // Call the repository's CreateAsync method to save the user
 
-                    user.rating = "5.0";
-                    user.giveWarnings = 0;
-                    user.amountOfFinedCompanies = 0;
-                    user.stoppedCompanyAmount = 0;
-                    await _repository.UpdateAsync(user.id, user);
+                    currentUser.fullname = user.fullname;
+                    currentUser.userId = user.userId;
+                    currentUser.dateOfBirth = user.dateOfBirth;
+                    currentUser.phone = user.phone;
+                    currentUser.email = user.email;
+                    currentUser.username = user.username;
+                    if(user.passwordHash != "")
+                    {
+                    currentUser.passwordHash = BCrypt.Net.BCrypt.HashPassword(user.passwordHash);
+                    }
+                    currentUser.status = user.status;
+
+
+                    await _repository.UpdateAsync(user.id, currentUser);
 
                 }
             return Ok("user info edit succesfully");
@@ -199,23 +129,38 @@ namespace ASP.MongoDb.API.Controllers
         public async Task<IActionResult> GetUserInfoDetails()
         {
             var sessionToken = Request.Cookies["session-token"];
-            if(string.IsNullOrEmpty(sessionToken))
+            if (string.IsNullOrEmpty(sessionToken))
             {
                 return NotFound("Token is Expired");
-
             }
+
             var userId = await _redisExample.GetUserIdBySessionToken(sessionToken);
             if (string.IsNullOrEmpty(userId))
             {
                 return NotFound("there is finding user in redis via token problem");
             }
+
             var userInfo = await _repository.GetByIdAsync(userId);
-            if(userInfo == null)
+            if (userInfo == null)
             {
                 return NotFound("in database that user doesnt exist");
             }
 
-            return Ok(userInfo);
+            // Project only the properties you want to expose
+            var userData = new
+            {
+                imgUrl = userInfo.imgUrl,
+                fullname = userInfo.fullname,
+                userId = userInfo.userId,
+                phone = userInfo.phone,
+                email = userInfo.email,
+                dateOfBirth = userInfo.dateOfBirth,
+                rating = userInfo.rating,
+                amountOfFinishedTasks = userInfo.amountOfFinishedTasks,
+                amountOfOnGoingTasks = userInfo.amountOfOnGoingTasks
+            };
+
+            return Ok(userData);
         }
 
 
@@ -267,86 +212,16 @@ namespace ASP.MongoDb.API.Controllers
             //Hash the plain text password using BCrypt
             user.passwordHash = BCrypt.Net.BCrypt.HashPassword(user.passwordHash);
 
-            if(user.level == 7)
-            {
-                user.position = "მთავარი შრომის ინსპექტორი";
-                user.role = "superAdmin";
-                user.department = "წვდომა ყველა დეპარტამენტზე";
-                user.diversion = "წვდომა ყველა სამართველოზე";
-                user.section = "წვდომა ყველა განყოფილებაზე";
-            }else if(user.level == 6 ) 
-            {
-                    user.role = "admin";
-                if (user.department == "შრომითი უფლებების ზედამხედველობის დეპარტამენტი")
-                {
-                user.position = "მთავარი შრომის ინსპექტორის 1-ლი მოადგილე";
-
-                }else
-                {
-                    user.position = "მთავარი შრომის ინსპექტორის მოადგილე";
-                }
-                if(user.department == "შრომითი უფლებების ზედამხედველობის დეპარტამენტი")
-                {
-                    user.diversion = "წვდომა შრომითი უფლებების ზედამხედველობის ყველა სამართველოზე";
-                    user.section = "წვდომა შრომითი უფლებების ზედამხედველობის ყველა განყოფილებაზე";
-                }else
-                {
-                    user.diversion = "წვდომა შრომის უსაფრთხოებაზე ზედამხედველობის ყველა სამართველოზე";
-                    user.section = "წვდომა შრომის უსაფრთხოებაზე ზედამხედველობის ყველა განყოფილებაზე";
-                }
-            }else if (user.level == 5)
-            {
-                user.role = "departmentHead";
-                user.position = "დეპარტამენტის უფროსი";
-                if(user.department == "შრომითი უფლებების ზედამხედველობის დეპარტამენტი")
-                {
-                    user.diversion = "წვდომა შრომითი უფლებების ზედამხედველობის ყველა სამართველოზე";
-                    user.section = "წვდომა შრომითი უფლებების ზედამხედველობის ყველა განყოფილებაზე";
-                }else
-                {
-                    user.diversion = "წვდომა შრომის უსაფრთხოებაზე ზედამხედველობის ყველა სამართველოზე";
-                    user.section = "წვდომა შრომის უსაფრთხოებაზე ზედამხედველობის ყველა განყოფილებაზე";
-                }
-
-            }
-            else if (user.level == 4)
-            {
-                user.role = "divisionHead";
-                user.position = "სამართველოს უფროსი";
-                    user.section = $"წვდომა {user.diversion}-ს ყველა განყოფილებაზე";
-                if (user.department == "შრომითი უფლებების ზედამხედველობის დეპარტამენტი")
-                {
-                }
-                else
-                {
-                    user.section = "წვდომა შრომის უსაფრთხოებაზე ზედამხედველობის ყველა განყოფილებაზე";
-                }
-            }
-            else if (user.level == 3)
-            {
-                user.role = "groupManager";
-                
-                user.position = "განყოფილების უფროსი";
-            }else if (user.level == 2)
-            {
-                user.role = "seniorInspector";
-
-                user.position = "უფროსი შრომის ინსპექტორი";
-            }else if (user.level == 1)
-            {
-                user.role = "inspector";
-
-                user.position = "შრომის ინსპექტორი";
-            }
-
-                user.status = "აქტიური";
+           
 
             // Call the repository's CreateAsync method to save the user
 
             user.rating = "5.0";
-            user.giveWarnings = 0;
-            user.amountOfFinedCompanies = 0;
-            user.stoppedCompanyAmount = 0;
+            user.amountOfFinishedTasks = 0;
+            user.amountOfOnGoingTasks = 0;
+            user.position = "ადვოკატი";
+            user.level = 1;
+            user.status = "აქტიური";
 
 
                 await _repository.CreateAsync(user);
@@ -367,7 +242,6 @@ namespace ASP.MongoDb.API.Controllers
             exactUser.role = user.role;
             exactUser.level = user.level;
             exactUser.passwordHash = BCrypt.Net.BCrypt.HashPassword(user.passwordHash);
-            exactUser.diversion = user.diversion;
 
             await _repository.UpdateAsync(id, exactUser);
             return Ok(exactUser);
@@ -384,7 +258,7 @@ namespace ASP.MongoDb.API.Controllers
             var users = await _repository.GetAllAsync();
             
 
-            var desiredInfoOfUsers = users.Select(d => new { d.id, d.fullname, d.position, d.level, d.department, d.diversion, d.status, d.section }).ToList();
+            var desiredInfoOfUsers = users.Select(d => new { d.id, d.fullname, d.position, d.level,  d.status, }).ToList();
             
 
             return Ok(desiredInfoOfUsers);
