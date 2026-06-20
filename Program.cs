@@ -42,6 +42,7 @@ builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped<IGenerateFilesRepository, GenerateFilesRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ITasksRepository, TasksRepository>();
+builder.Services.AddScoped<ICalendarRepository, CalendarRepository>();
 builder.Services.AddScoped<IStructureOfSystemRepository, StructureOfSystemRepository>();
 builder.Services.AddScoped<IDataOfStructureRepository, DataOfStuctureRepository>();
 
