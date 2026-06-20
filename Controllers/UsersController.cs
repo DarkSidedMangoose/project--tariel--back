@@ -163,6 +163,25 @@ namespace ASP.MongoDb.API.Controllers
             return Ok(userData);
         }
 
+        [HttpGet("getLawyers")]
+        public async Task<IActionResult> GetLawyers()
+        {
+            var users = await _repository.GetAllAsync();
+            if(users == null)
+            {
+                return BadRequest("users getting  problem from mongo");
+            }
+
+            var result = users.Select(u => new
+            {
+                u.id,
+                u.fullname
+            });
+
+            return Ok(result);
+        }
+
+        
 
         [HttpGet("getUserInfo")]
         public async Task<IActionResult> GetUserInfo()
