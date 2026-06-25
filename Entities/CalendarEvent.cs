@@ -27,4 +27,19 @@ namespace ASP.MongoDb.API.Entities
 
 
     }
+    public class TakeWeeksDay
+    {
+        public DateOnly week1 { get; set; }
+        public DateOnly week2 { get; set; }
+        public DateOnly week3 { get; set; }
+        public DateOnly week4 { get; set; }
+        public DateOnly week5 { get; set; }
+        public DateOnly week6 { get; set; }
+        public DateOnly week7 { get; set; }
+
+    }
+
+    
+
+
 }

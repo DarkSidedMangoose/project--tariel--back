@@ -10,6 +10,7 @@ namespace ASP.MongoDb.API.Repository
         public interface ICalendarRepository : IRepository<CalendarEvent>
         {
         Task<CalendarEvent?> GetNextEventAsync(DateTime referenceDate);
+        Task<CalendarEvent?> GetPreviousEventAsync(DateTime referenceDate);
         Task<List<CalendarEvent>> GetEventsInRangeAsync(DateTime start, DateTime end);
 
     }
@@ -37,6 +38,19 @@ namespace ASP.MongoDb.API.Repository
                 .FirstOrDefaultAsync();
         }
 
+        public async Task<CalendarEvent?> GetPreviousEventAsync(DateTime referenceDate)
+        {
+            // Find events with a date less than the reference
+            var filter = Builders<CalendarEvent>.Filter.Lt(e => e.date, referenceDate);
+
+            // Sort descending so the most recent before referenceDate comes first
+            var sort = Builders<CalendarEvent>.Sort.Descending(e => e.date);
+
+            return await _calendarCollection
+                .Find(filter)
+                .Sort(sort)
+                .FirstOrDefaultAsync();
+        }
         public async Task<List<CalendarEvent>> GetEventsInRangeAsync(DateTime start, DateTime end)
         {
             var filter = Builders<CalendarEvent>.Filter.And(

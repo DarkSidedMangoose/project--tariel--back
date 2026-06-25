@@ -1,10 +1,8 @@
 ﻿using ASP.MongoDb.API.Entities;
 using ASP.MongoDb.API.Repository;
-using ASP.MongoDb.API.Services;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
 using System.Globalization;
-
 
 namespace ASP.MongoDb.API.Controllers
 {
@@ -21,50 +19,60 @@ namespace ASP.MongoDb.API.Controllers
 
         [HttpPost("addNew")]
         public async Task<IActionResult> AddNewEvent([FromBody] CalendarEvent arg)
-
         {
-            Console.WriteLine(arg.title);
             if (arg == null)
+                return BadRequest("Event is null");
+            if (arg.date.HasValue)
             {
-                return BadRequest("arg is null");
+                // Ensure it's stored as UTC midnight
+                arg.date = DateTime.SpecifyKind(arg.date.Value, DateTimeKind.Utc);
             }
-
-             await _calendarRepository.CreateAsync(arg);
-
-            Console.WriteLine("ssad");
-            
-
-            return Ok("everything work well"); // return the created event or its ID
+            await _calendarRepository.CreateAsync(arg);
+            return Ok("Event created successfully");
         }
-
 
         [HttpGet("getDate")]
         public async Task<IActionResult> GetDate(DateTime? inputDate = null)
         {
-            // Use input date if provided, otherwise current UTC
             var utcDate = inputDate ?? DateTime.UtcNow;
-
             return await MethodToTakeDesireInfoForCalendar(utcDate);
         }
+
         [HttpGet("getCalendarDaysMonthAndEvents")]
         public async Task<IActionResult> GetCurrentInfo([FromQuery] DateTime date)
         {
             return await MethodToTakeDesireInfoForCalendar(date);
         }
 
-
-        [HttpGet("getAllEvents")]
-        public async Task<IActionResult> GetAllEvent()
+        [HttpGet("getCurrentWeekEvents")]
+        public async Task<IActionResult> GetAllEvent([FromQuery] TakeWeeksDay datas)
         {
+            Console.WriteLine(datas.week1);
             var allData = await _calendarRepository.GetAllAsync();
-            return Ok(allData);
 
+            // Convert incoming DateTime values to DateOnly
+            var weekDates = new List<DateOnly>
+            {
+                DateOnly.FromDateTime(datas.week1),
+                DateOnly.FromDateTime(datas.week2),
+                DateOnly.FromDateTime(datas.week3),
+                DateOnly.FromDateTime(datas.week4),
+                DateOnly.FromDateTime(datas.week5),
+                DateOnly.FromDateTime(datas.week6),
+                DateOnly.FromDateTime(datas.week7)
+            };
+
+            var filteredEvents = allData
+                .Where(e => e.date.HasValue &&
+                            weekDates.Contains(DateOnly.FromDateTime(e.date.Value)))
+                .ToList();
+
+            return Ok(filteredEvents);
         }
 
         [HttpGet("getNextEvent")]
         public async Task<IActionResult> GetNextEvent([FromQuery] DateTime referenceDate)
         {
-            Console.WriteLine(referenceDate);
             var georgiaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Georgian Standard Time");
             var georgiaReference = TimeZoneInfo.ConvertTimeFromUtc(referenceDate, georgiaTimeZone);
 
@@ -79,16 +87,30 @@ namespace ASP.MongoDb.API.Controllers
             return await MethodToTakeDesireInfoForCalendar(nextEvent.date.Value);
         }
 
+        [HttpGet("getPreviousEvent")]
+        public async Task<IActionResult> GetPreviousEvent([FromQuery] DateTime referenceDate)
+        {
+            var georgiaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Georgian Standard Time");
+            var georgiaReference = TimeZoneInfo.ConvertTimeFromUtc(referenceDate, georgiaTimeZone);
+
+            var nextEvent = await _calendarRepository.GetPreviousEventAsync(georgiaReference);
+
+            if (nextEvent == null)
+                return NotFound("No upcoming events after the given date.");
+
+            if (nextEvent?.date == null)
+                return BadRequest("Event has no valid date.");
+
+            return await MethodToTakeDesireInfoForCalendar(nextEvent.date.Value);
+        }
+
         private async Task<IActionResult> MethodToTakeDesireInfoForCalendar(DateTime date)
         {
-            // Convert input date to Georgia timezone
             var georgiaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Georgian Standard Time");
             var georgiaDate = TimeZoneInfo.ConvertTimeFromUtc(date, georgiaTimeZone);
 
-            // Georgian culture
             var georgianCulture = new CultureInfo("ka-GE");
 
-            // Build 7-day window (3 before, the date itself, 3 after)
             var days = Enumerable.Range(-3, 7)
                 .Select(offset =>
                 {
@@ -100,12 +122,11 @@ namespace ASP.MongoDb.API.Controllers
                         Year = d.Year,
                         Month = d.Month,
                         Day = d.Day,
-                        WeekDay = d.ToString("dddd", georgianCulture) // weekday in Georgian
+                        WeekDay = d.ToString("dddd", georgianCulture)
                     };
                 })
                 .ToList();
 
-            // Collect distinct month names involved (in Georgian)
             var monthsInvolved = days
                 .Select(d => new DateTime(d.Year, d.Month, 1).ToString("MMMM", georgianCulture))
                 .Distinct()
@@ -119,6 +140,17 @@ namespace ASP.MongoDb.API.Controllers
 
             return Ok(result);
         }
+    }
 
+    // Updated TakeWeeksDay to use DateTime for binding
+    public class TakeWeeksDay
+    {
+        public DateTime week1 { get; set; }
+        public DateTime week2 { get; set; }
+        public DateTime week3 { get; set; }
+        public DateTime week4 { get; set; }
+        public DateTime week5 { get; set; }
+        public DateTime week6 { get; set; }
+        public DateTime week7 { get; set; }
     }
 }

@@ -282,120 +282,79 @@ namespace ASP.MongoDb.API.Controllers
         //}
 
         /// დავალების დასრულება და დამტკიცებისთვის გაგზავნა
-        //[HttpPut("endTask")]
-        //public async Task<IActionResult> EndTask([FromBody] OverTaskRequest? overtaskRequest)
-        //{
-        //    if (overtaskRequest == null)
-        //        return BadRequest("Task request cannot be null");
-
-            
-        //    try
-        //    {
-        //        var georgiaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Georgian Standard Time");
-        //        var georgiaTime = TimeZoneInfo.ConvertTime(DateTime.Now, georgiaTimeZone);
-        //        var taskId = overtaskRequest.taskId;
-        //        if (string.IsNullOrEmpty(taskId))
-        //            return BadRequest("TaskId is required");
-
-        //        var taskById = await _tasksRepository.GetByIdAsync(taskId);
-        //        if (taskById == null)
-        //            return NotFound($"Task with ID {taskId} not found");
-
-        //        var userId = await getUserIdViaSessionToken();
-               
-        //        if (string.IsNullOrEmpty(userId))
-        //            return Unauthorized("User ID not found in session");
+        [HttpPut("endTask")]
+        public async Task<IActionResult> EndTask([FromBody] OverTaskRequest? overtaskRequest)
+        {
+            if (overtaskRequest == null)
+                return BadRequest("Task request cannot be null");
 
 
-        //        var userInfo = await _userRepository.GetByIdAsync(userId);
-        //        if (userInfo == null)
-        //            return Unauthorized("User information not found");
+            try
+            {
+                var georgiaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Georgian Standard Time");
+                var georgiaTime = TimeZoneInfo.ConvertTime(DateTime.Now, georgiaTimeZone);
+                var taskId = overtaskRequest.taskId;
+                if (string.IsNullOrEmpty(taskId))
+                    return BadRequest("TaskId is required");
 
-        //        if (userInfo.level == 7)
-        //        {
-        //            var levels = new[]
-        //             {
-        //                taskById.dataFlow.level1,
-        //                taskById.dataFlow.level2,
-                        
-        //            };
+                var taskById = await _tasksRepository.GetByIdAsync(taskId);
+                if (taskById == null)
+                    return NotFound($"Task with ID {taskId} not found");
 
-        //            foreach (var level in levels)
-        //            {
-        //                if (level == null)
-        //                    return BadRequest("One of the levels is missing");
+                var userId = await getUserIdViaSessionToken();
 
-        //                level.status = "finished";
-        //                level.timeSpan = DateTime.UtcNow;
-        //            }
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized("User ID not found in session");
 
-        //            taskById.dataLogs ??= new List<Tasks.TaskLogEntry>();
-        //            taskById.dataLogs.Add(new Tasks.TaskLogEntry
-        //            {
-        //                level = userInfo.level,
-        //                timestamp = georgiaTime.ToString("M/d/yyyy, h:mm:ss tt"),
-        //                addedByName = userInfo.fullname,
-        //                addedById = userInfo.id,
-        //                description = "დავალების დასრულება",
-        //                imgUrl = userInfo.imgUrl
-        //            });
 
-        //            await _tasksRepository.UpdateAsync(taskId, taskById);
-        //            return Ok("data succesfully added to finished objects database");
-        //        }
-        //        else
-        //        {
+                
+                taskById.status = false;
+                await _tasksRepository.UpdateAsync(overtaskRequest.taskId, taskById);
 
-        //        var userLevelStr = $"level{userInfo.level}";
-        //        var receiverLevelStr = $"level{userInfo.level + 1}";
+                return Ok("everything work well");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"internal server error: {ex.Message}");
+            }
+        }
 
-        //        var senderProperty = taskById.dataFlow.GetType().GetProperty(userLevelStr);
-        //        if (senderProperty?.GetValue(taskById.dataFlow) is Tasks.Level senderLevel)
-        //        {
-        //            senderLevel.status = "waitApproval";
-        //            senderLevel.timeSpan = DateTime.UtcNow;
-        //            senderProperty.SetValue(taskById.dataFlow, senderLevel);
-        //        }
+        [HttpPut("recoverTask")]
+        public async Task<IActionResult> RecoverTask([FromBody] OverTaskRequest? overtaskRequest)
+        {
+            if (overtaskRequest == null)
+                return BadRequest("Task request cannot be null");
 
-        //        var receiverProperty = taskById.dataFlow.GetType().GetProperty(receiverLevelStr);
-        //        if (receiverProperty?.GetValue(taskById.dataFlow) is Tasks.Level receiverLevelValue)
-        //        {
-        //            receiverLevelValue.status = "receiveApproval";
-        //            receiverLevelValue.timeSpan = DateTime.UtcNow;
-        //            receiverProperty.SetValue(taskById.dataFlow, receiverLevelValue);
 
-                 
+            try
+            {
+                var georgiaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Georgian Standard Time");
+                var georgiaTime = TimeZoneInfo.ConvertTime(DateTime.Now, georgiaTimeZone);
+                var taskId = overtaskRequest.taskId;
+                if (string.IsNullOrEmpty(taskId))
+                    return BadRequest("TaskId is required");
 
-        //            var receiverUser = await _userRepository.GetByIdAsync(receiverLevelValue.userId);
-        //            if (receiverUser != null)
-        //            {
-        //                taskById.dataLogs ??= new List<Tasks.TaskLogEntry>();
-        //                taskById.dataLogs.Add(new Tasks.TaskLogEntry
-        //                {
-        //                    level = userInfo.level,
-        //                    timestamp = georgiaTime.ToString("M/d/yyyy, h:mm:ss tt"),
-        //                    addedByName = userInfo.fullname,
-        //                    addedById = userInfo.id,
-        //                    description = "დავალების დასრულების მოთხოვნა",
-        //                    receiverName = receiverUser.fullname,
-        //                    receiverId = receiverUser.id,
-        //                    imgUrl = userInfo.imgUrl
-        //                });
-        //            }
+                var taskById = await _tasksRepository.GetByIdAsync(taskId);
+                if (taskById == null)
+                    return NotFound($"Task with ID {taskId} not found");
 
-        //            await _tasksRepository.UpdateAsync(taskById.id!, taskById);
-        //            if (receiverLevelValue.userId != null)
-        //                await SendData(receiverLevelValue.userId);
-        //            }
-        //        }
+                var userId = await getUserIdViaSessionToken();
 
-        //        return Ok("everything work well");
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, $"internal server error: {ex.Message}");
-        //    }
-        //}
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized("User ID not found in session");
+
+
+
+                taskById.status = true;
+                await _tasksRepository.UpdateAsync(overtaskRequest.taskId, taskById);
+
+                return Ok("everything work well");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"internal server error: {ex.Message}");
+            }
+        }
 
         /// ახალი დავალების შექმნა
         [HttpPost("addNewTask")]

@@ -25,6 +25,9 @@ namespace ASP.MongoDb.API.Entities
         public string? position { get; set; }
         public int level { get; set; }
         public string? imgUrl { get; set; }
+
+        [BsonIgnore]                         // ✅ don’t serialize file
+        public IFormFile? file { get; set; }
         public string? status { get; set; }
     }
 }

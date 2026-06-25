@@ -97,7 +97,7 @@ namespace ASP.MongoDb.API.Controllers
             var users = await _userRepository.GetAllAsync();
             var user = users.FirstOrDefault(u => u.username == loginRequest.Username);
 
-            if (user == null || !BCrypt.Net.BCrypt.Verify(loginRequest.Password, user.passwordHash))
+            if (user == null || user.status == "არა აქტიური" || !BCrypt.Net.BCrypt.Verify(loginRequest.Password, user.passwordHash))
             {
                 return Unauthorized("Invalid credentials");
             }
