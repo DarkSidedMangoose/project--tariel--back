@@ -18,8 +18,9 @@ public class SessionAuthorizationMiddleware
     {
         var path = context.Request.Path.Value;
 
-        // Allow the /login endpoint to bypass authentication
-        if (path.Equals("/api/auth/login", StringComparison.OrdinalIgnoreCase))
+        // Allow the /login and /verify-mfa endpoints to bypass authentication
+        if (path.Equals("/api/auth/login", StringComparison.OrdinalIgnoreCase) ||
+            path.Equals("/api/auth/verify-mfa", StringComparison.OrdinalIgnoreCase))
         {
             await _next(context);
             return;

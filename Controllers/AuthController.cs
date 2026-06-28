@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
+using System.Net;
+using System.Net.Mail;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -110,14 +112,61 @@ namespace ASP.MongoDb.API.Controllers
                 return Unauthorized("შეყვანილი User ან Password არასწორია");
             }
 
+            var code = new Random().Next(100000, 999999).ToString();
+
+            await _cache.SetStringAsync($"mfa:{user.id}", code,
+        new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(3) });
+
+            // Send MFA code via Gmail
+            await SendMfaCodeAsync(user.email, code);
+
+
+            // Generate secure session token
+            //var uniqueId = GenerateSecureToken();
+
+            //var expiration = TimeSpan.FromMinutes(30);
+            //await _cache.SetStringAsync($"session:{uniqueId}", user.id, new DistributedCacheEntryOptions
+            //{
+            //    AbsoluteExpirationRelativeToNow = expiration
+            //});
+
+            //var cookieOptions = new CookieOptions
+            //{
+            //    HttpOnly = true,
+            //    Secure = true,
+            //    SameSite = SameSiteMode.Strict,
+            //    Expires = DateTime.UtcNow.Add(expiration)
+            //};
+
+            //Response.Cookies.Append("session-token", uniqueId, cookieOptions);
+
+            return Ok(new
+            {
+                message = "MFA Code sent to email",
+                userId = user.id,
+                userEmail = user.email
+            });
+        }
+
+        public class MfaRequest
+        {
+            public string UserId { get; set; }     // მომხმარებლის უნიკალური ID
+            public string Code { get; set; }       // MFA კოდი, რომელიც მომხმარებელმა შეიყვანა
+        }
+
+        [HttpPost("verify-mfa")]
+        public async Task<IActionResult> VerifyMfa([FromBody] MfaRequest request)
+        {
+            var code = await _cache.GetStringAsync($"mfa:{request.UserId}");
+            if (code == null || code != request.Code)
+                return Unauthorized("კოდი არასწორია, ან ამოიწურა მისი მოქმედების დრო");
+
             // Generate secure session token
             var uniqueId = GenerateSecureToken();
-
             var expiration = TimeSpan.FromMinutes(30);
-            await _cache.SetStringAsync($"session:{uniqueId}", user.id, new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = expiration
-            });
+
+            await _cache.SetStringAsync($"session:{uniqueId}", request.UserId,
+                new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = expiration });
 
             var cookieOptions = new CookieOptions
             {
@@ -138,8 +187,27 @@ namespace ASP.MongoDb.API.Controllers
             RandomNumberGenerator.Fill(tokenBytes);
             return Convert.ToBase64String(tokenBytes);
         }
+
+        private async Task SendMfaCodeAsync(string toEmail, string code)
+        {
+            using var smtp = new SmtpClient("smtp.gmail.com", 587)
+            {
+                Credentials = new NetworkCredential("topuria2074@gmail.com", "chsy qeef wwtj dohp"),
+                EnableSsl = true
+            };
+
+            var mail = new MailMessage("topuria2074@gmail.com", toEmail)
+            {
+                Subject = "Your MFA Code",
+                Body = $"Your verification code is {code}"
+            };
+
+            await smtp.SendMailAsync(mail);
+        }
     }
 }
+
+
 
 
 
