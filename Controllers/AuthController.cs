@@ -2,6 +2,7 @@
 using ASP.MongoDb.API.Entities;
 using ASP.MongoDb.API.Repository;
 using ASP.MongoDb.API.Services;
+using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.IdentityModel.Tokens;
@@ -57,6 +58,34 @@ namespace ASP.MongoDb.API.Controllers
                
             return Ok(new { message = "session token removed succesfully" });
         }
+        [HttpGet("LogOut")]
+        public async Task<IActionResult> LogOut([FromQuery] string Id)
+        {
+            if (string.IsNullOrEmpty(Id))
+            {
+                return BadRequest("token is missed");
+            }
+
+            var sessionToken = HttpContext.Request.Cookies["session-token"];
+            await _cache.RemoveAsync($"session:{sessionToken}");
+
+
+
+            Console.WriteLine("everything work well");
+            HttpContext.Session.Remove("session-token");
+
+            // Expire the HttpOnly cookie
+            Response.Cookies.Append("session-token", "", new CookieOptions
+            {
+                Expires = DateTime.UtcNow.AddDays(-1), // Forces expiration
+                HttpOnly = true, // Keeps it secure
+                Secure = true, // Required if using HTTPS
+                SameSite = SameSiteMode.Strict // Adjust based on security needs
+            });
+
+            return Ok("Session-token cookie removed successfully.");
+        }
+
         [HttpPost("updateSessionToken")]
         public async Task<IActionResult> UpdateSessionToken([FromServices] IDistributedCache cache)
         {
@@ -94,6 +123,8 @@ namespace ASP.MongoDb.API.Controllers
             return Ok(new { message = "Session token updated successfully" });
         }
 
+
+
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest loginRequest,
                                        [FromServices] LoginAttemptService attemptService)
@@ -112,33 +143,16 @@ namespace ASP.MongoDb.API.Controllers
                 return Unauthorized("შეყვანილი User ან Password არასწორია");
             }
 
-            var code = new Random().Next(100000, 999999).ToString();
+            if(user.id != null && user.email != null)
+            {
 
-            await _cache.SetStringAsync($"mfa:{user.id}", code,
-        new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(3) });
+            await CreateMfaCodeAndSetInRedis(user.id, user.email);
+            } else
+            {
+                return BadRequest("მონაცემთა ბაზიდან ვერ მოხდა საჭირო ინფორმაციების მიღება");
+            }
 
-            // Send MFA code via Gmail
-            await SendMfaCodeAsync(user.email, code);
 
-
-            // Generate secure session token
-            //var uniqueId = GenerateSecureToken();
-
-            //var expiration = TimeSpan.FromMinutes(30);
-            //await _cache.SetStringAsync($"session:{uniqueId}", user.id, new DistributedCacheEntryOptions
-            //{
-            //    AbsoluteExpirationRelativeToNow = expiration
-            //});
-
-            //var cookieOptions = new CookieOptions
-            //{
-            //    HttpOnly = true,
-            //    Secure = true,
-            //    SameSite = SameSiteMode.Strict,
-            //    Expires = DateTime.UtcNow.Add(expiration)
-            //};
-
-            //Response.Cookies.Append("session-token", uniqueId, cookieOptions);
 
             return Ok(new
             {
@@ -153,6 +167,37 @@ namespace ASP.MongoDb.API.Controllers
             public string UserId { get; set; }     // მომხმარებლის უნიკალური ID
             public string Code { get; set; }       // MFA კოდი, რომელიც მომხმარებელმა შეიყვანა
         }
+
+        public class ResetMfaRequest
+        {
+            public string UserId { get; set; }
+            public string Email { get; set; }
+        }
+
+        [HttpPost("reset-mfa")]
+        public async Task<IActionResult> ResetMfa([FromBody] ResetMfaRequest request)
+        {
+            if(request.UserId == null || request.Email == null)
+            {
+                return BadRequest("Unknown Error თავიდან სცადეთ და დაუკავშირდით დეველოპერს");
+            }
+
+            await _cache.RemoveAsync($"mfa:{request.UserId}");
+
+            if (request.UserId != null && request.Email != null)
+            {
+
+                await CreateMfaCodeAndSetInRedis(request.UserId, request.Email);
+            }
+            else
+            {
+                return BadRequest("მონაცემთა ბაზიდან ვერ მოხდა საჭირო ინფორმაციების მიღება");
+            }
+
+
+            return Ok("everything worked well");
+        }
+
 
         [HttpPost("verify-mfa")]
         public async Task<IActionResult> VerifyMfa([FromBody] MfaRequest request)
@@ -203,6 +248,18 @@ namespace ASP.MongoDb.API.Controllers
             };
 
             await smtp.SendMailAsync(mail);
+        }
+
+        private async Task CreateMfaCodeAndSetInRedis(string userId, string userEmail)
+        {
+            var code = new Random().Next(100000, 999999).ToString();
+
+            await _cache.SetStringAsync($"mfa:{userId}", code,
+        new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(3) });
+
+            // Send MFA code via Gmail
+            await SendMfaCodeAsync(userEmail, code);
+
         }
     }
 }

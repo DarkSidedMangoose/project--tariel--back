@@ -20,7 +20,10 @@ public class SessionAuthorizationMiddleware
 
         // Allow the /login and /verify-mfa endpoints to bypass authentication
         if (path.Equals("/api/auth/login", StringComparison.OrdinalIgnoreCase) ||
-            path.Equals("/api/auth/verify-mfa", StringComparison.OrdinalIgnoreCase))
+            path.Equals("/api/auth/verify-mfa", StringComparison.OrdinalIgnoreCase) ||
+            path.Equals("/api/auth/reset-mfa", StringComparison.OrdinalIgnoreCase)
+           
+            )
         {
             await _next(context);
             return;
