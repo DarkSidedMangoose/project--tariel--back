@@ -1,6 +1,7 @@
 ﻿// AuthController.cs
 using ASP.MongoDb.API.Entities;
 using ASP.MongoDb.API.Repository;
+using ASP.MongoDb.API.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.IdentityModel.Tokens;
@@ -92,14 +93,21 @@ namespace ASP.MongoDb.API.Controllers
         }
 
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginRequest loginRequest)
+        public async Task<IActionResult> Login([FromBody] LoginRequest loginRequest,
+                                       [FromServices] LoginAttemptService attemptService)
         {
+            if (await attemptService.IsLockedOutAsync(loginRequest.Username))
+                return Unauthorized("მომხმარებელი დაბლოკილია 15 წუთით.");
+
             var users = await _userRepository.GetAllAsync();
             var user = users.FirstOrDefault(u => u.username == loginRequest.Username);
 
             if (user == null || user.status == "არა აქტიური" || !BCrypt.Net.BCrypt.Verify(loginRequest.Password, user.passwordHash))
             {
-                return Unauthorized("Invalid credentials");
+                if(!BCrypt.Net.BCrypt.Verify(loginRequest.Password, user.passwordHash)) {
+                    attemptService.RegisterFailedAttemptAsync(loginRequest.Username);
+                }
+                return Unauthorized("შეყვანილი User ან Password არასწორია");
             }
 
             // Generate secure session token

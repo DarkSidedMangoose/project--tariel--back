@@ -4,6 +4,7 @@
     {
         public FirstArgumentClass FirstArgument { get; set; }
         public AuthenticatedUserInfo SecondArgument { get; set; }
+        public string thirdArgument { get; set; }
     }
 
     public class FirstArgumentClass { 

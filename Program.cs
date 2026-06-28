@@ -37,6 +37,7 @@ builder.Services.Configure<FormOptions>(options =>
 });
 
 // Register Repositories and Other Services
+builder.Services.AddScoped<LoginAttemptService>();
 builder.Services.AddScoped<IFileService, FileService>();
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped<IGenerateFilesRepository, GenerateFilesRepository>();
@@ -72,7 +73,7 @@ builder.Services.AddControllers();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
-        policy.WithOrigins("http://localhost:3000", "https://localhost:3000", "https://localhost") // Allow local frontend origins
+        policy.WithOrigins( "https://localhost:3000", "https://localhost") // Allow local frontend origins
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials());
@@ -93,7 +94,7 @@ var app = builder.Build();
 
 // Configure Middleware
 app.UseCors("AllowFrontend");
-app.UseSession(); // Add session middleware
+app.UseSession();  // Add session middleware
 app.UseHttpsRedirection();
 app.UseMiddleware<SessionAuthorizationMiddleware>(); // Custom session authorization middleware
 

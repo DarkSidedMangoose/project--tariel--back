@@ -161,126 +161,15 @@ namespace ASP.MongoDb.API.Controllers
                 t.convicted,
                 t.registerDate,
                 t.lawyer,
-                t.dataLogs
+                t.dataLogs,
+                t.statusIdentifier
             });
 
             return Ok(results);
         }
 
 
-        /// <summary>
-        /// აბრუნებს იმ მომხმარებლების სიას, ვისთვისაც მიმდინარე მომხმარებელს შეუძლია დავალების გაცემა
-        /// </summary>
-        //[HttpGet("getUsersForTasks")]
-        //public async Task<IActionResult> GetSpecificUsersForGiveTasks()
-        //{
-        //    var user = await GetValidUserAsync();
-        //    if (user == null)
-        //        return Unauthorized("Current user is invalid or not authenticated");
-
-        //    var users = await _userRepository.GetAllAsync();
-
-        //    var usersDedicatedForUser = users
-        //        .Where(d => d.level == user.level - 1 &&
-        //                   (d.level == 6 ||
-        //                    (d.department == user.department && (d.level == 5 || d.level == 4)) ||
-        //                    (d.department == user.department && d.level == 3 && d.diversion == user.diversion) ||
-        //                    (d.department == user.department && d.level < 3 && d.diversion == user.diversion && d.section == user.section)))
-        //        .Select(d => new
-        //        {
-        //            d.fullname,
-        //            d.diversion,
-        //            d.imgUrl,
-        //            d.id,
-        //            d.position,
-        //            d.department
-        //        })
-        //        .ToList();
-
-        //    return Ok(usersDedicatedForUser);
-        //}
-
-        /// <summary>
-        /// დავალების გაცემა ერთი მომხმარებლიდან მეორეს
-        /// </summary>
-        //[HttpPut("giveTask")]
-        //public async Task<IActionResult> GiveTask([FromBody] SentTaskRequest? taskRequest)
-        //{
-        //    if (taskRequest == null)
-        //        return BadRequest("Task request cannot be null");
-
-        //    var taskId = taskRequest.taskId;
-        //    var receiverId = taskRequest.receiveUserId;
-
-        //    if (string.IsNullOrEmpty(taskId) || string.IsNullOrEmpty(receiverId))
-        //        return BadRequest($"TaskId and ReceiverId are required. Received: TaskId={taskId}, ReceiverId={receiverId}");
-
-        //    try
-        //    {
-        //        var currentUser = await GetValidUserAsync();
-        //        if (currentUser == null)
-        //            return Unauthorized("Current User is invalid or Not authenticated");
-
-        //        var receiverUser = await _userRepository.GetByIdAsync(receiverId);
-        //        if (receiverUser == null)
-        //            return NotFound($"Receiver user with ID {receiverId} not found");
-
-        //        var taskById = await _tasksRepository.GetByIdAsync(taskId);
-        //        if (taskById == null)
-        //            return NotFound($"The Task with ID {taskId} not found");
-
-        //        var levelOfSender = $"level{currentUser.level}";
-        //        var levelOfReceiver = $"level{receiverUser.level}";
-
-        //        // გამგზავნის დონის განახლება
-        //        var senderProperty = taskById.dataFlow.GetType().GetProperty(levelOfSender);
-        //        if (senderProperty?.GetValue(taskById.dataFlow) is Tasks.Level senderLevel)
-        //        {
-        //            senderLevel.userId = currentUser.id;
-        //            senderLevel.status = "onPending";
-        //            senderLevel.timeSpan = DateTime.UtcNow;
-        //            senderProperty.SetValue(taskById.dataFlow, senderLevel);
-        //        }
-
-        //        // მიმღების დონის განახლება
-        //        var receiverProperty = taskById.dataFlow.GetType().GetProperty(levelOfReceiver);
-        //        if (receiverProperty?.GetValue(taskById.dataFlow) is Tasks.Level receiverLevel)
-        //        {
-        //            receiverLevel.userId = receiverUser.id;
-        //            receiverLevel.status = "onGoing";
-        //            receiverLevel.fromUserId = currentUser.id;
-        //            receiverLevel.timeSpan = DateTime.UtcNow;
-        //            receiverProperty.SetValue(taskById.dataFlow, receiverLevel);
-        //        }
-
-        //        taskById.dataLogs ??= new List<Tasks.TaskLogEntry>();
-
-        //        var georgiaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Georgian Standard Time");
-        //        var georgiaTime = TimeZoneInfo.ConvertTime(DateTime.Now, georgiaTimeZone);
-
-        //        taskById.dataLogs.Add(new Tasks.TaskLogEntry
-        //        {
-        //            level = currentUser.level,
-        //            timestamp = georgiaTime.ToString("M/d/yyyy, h:mm:ss tt"),
-        //            addedByName = currentUser.fullname,
-        //            addedById = currentUser.id,
-        //            description = "დავალების გაცემა",
-        //            receiverName = receiverUser.fullname,
-        //            receiverId = receiverUser.id,
-        //            imgUrl = currentUser.imgUrl
-        //        });
-
-        //        await _tasksRepository.UpdateAsync(taskById.id!, taskById);
-        //        await SendData(receiverUser.id);
-
-        //        return Ok("everything work well");
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, $"internal server error: {ex.Message}");
-        //    }
-        //}
-
+        
         /// დავალების დასრულება და დამტკიცებისთვის გაგზავნა
         [HttpPut("endTask")]
         public async Task<IActionResult> EndTask([FromBody] OverTaskRequest? overtaskRequest)
@@ -307,8 +196,16 @@ namespace ASP.MongoDb.API.Controllers
                     return Unauthorized("User ID not found in session");
 
 
-                
+                var lawyerUser = await _userRepository.GetByIdAsync(taskById.lawyerId);
+                lawyerUser.amountOfOnGoingTasks -= 1;
+                lawyerUser.amountOfFinishedTasks += 1;
+
+                await _userRepository.UpdateAsync(taskById.lawyerId, lawyerUser);
+
                 taskById.status = false;
+                taskById.timeSpan = DateTime.UtcNow;
+
+                taskById.statusIdentifier = "დამთავრებული";
                 await _tasksRepository.UpdateAsync(overtaskRequest.taskId, taskById);
 
                 return Ok("everything work well");
@@ -346,6 +243,13 @@ namespace ASP.MongoDb.API.Controllers
 
 
                 taskById.status = true;
+                taskById.timeSpan = DateTime.UtcNow;
+                taskById.statusIdentifier = "აღდგენილი";
+                var lawyerUser = await _userRepository.GetByIdAsync(taskById.lawyerId);
+                lawyerUser.amountOfFinishedTasks -= 1;
+                lawyerUser.amountOfOnGoingTasks += 1;
+
+                await _userRepository.UpdateAsync(taskById.lawyerId, lawyerUser);
                 await _tasksRepository.UpdateAsync(overtaskRequest.taskId, taskById);
 
                 return Ok("everything work well");
@@ -370,22 +274,13 @@ namespace ASP.MongoDb.API.Controllers
             var task = request.FirstArgument;
             var userLevel = $"level{request.SecondArgument.level}";
             var user = await _userRepository.GetByIdAsync(request.SecondArgument.id);
-            
-            //if (task?.dataFlow != null)
-            //{
-            //    var property = task.dataFlow.GetType().GetProperty(userLevel);
-            //    if (property != null)
-            //    {
-            //        if (property.GetValue(task.dataFlow) is Tasks.Level createrLevelValue)
-            //        {
-            //            createrLevelValue.userId = request.SecondArgument.id;
-            //            createrLevelValue.status = "onGoing";
-            //            createrLevelValue.timeSpan = DateTime.UtcNow;
-            //            property.SetValue(task.dataFlow, createrLevelValue);
-            //        }
-            //    }
-            //}
+            var receiverUser = await _userRepository.GetByIdAsync(request.thirdArgument);
 
+            receiverUser.amountOfOnGoingTasks += 1;
+
+            await _userRepository.UpdateAsync(receiverUser.id, receiverUser);
+            
+           
             var wholeData = new Tasks
             {
                 workingCode = task.addNew.workingCode,
@@ -394,6 +289,9 @@ namespace ASP.MongoDb.API.Controllers
                 registerDate = georgiaTime.ToString("yyyy-MM-dd"),
                 status = true,
                 taskAttachedData = [],
+                lawyerId = request.thirdArgument,
+                statusIdentifier = "დამატებული",
+                timeSpan = DateTime.UtcNow,
                 dataLogs = new List<Tasks.TaskLogEntry>
     {
         new Tasks.TaskLogEntry
@@ -497,9 +395,15 @@ namespace ASP.MongoDb.API.Controllers
             });
 
             await _tasksRepository.UpdateAsync(id, currentTask);
-            
 
-            return Ok(new { filePath, attachments = currentTask.taskAttachedData });
+
+            return Ok(new
+            {
+                message = "დოკუმენტი დაემატა წარმატებით",
+                filePath = filePath,
+                attachments = currentTask.taskAttachedData
+            });
+
         }
 
         /// ფაილის ჩამოტვირთვა შენახული URL-ის მიხედვით
@@ -594,92 +498,20 @@ namespace ASP.MongoDb.API.Controllers
         public async Task<IActionResult> GetTaskDocuments([FromQuery] string id)
         {
             if (string.IsNullOrEmpty(id))
-                return BadRequest("we have error to get Task id");
+                return BadRequest("uknown problem (დაუკავშირდით დეველოპერს)");
 
             var task = await _tasksRepository.GetByIdAsync(id);
             if (task == null)
-                return BadRequest("task with that id is not in database");
+                return BadRequest("საქმე ვერ მოიძებნა მონაცემთა ბაზაში");
 
-            return Ok(task.taskAttachedData ?? new List<TaskAttachedData>());
+            return Ok(new
+            {
+                message = "დოკუმენტები და ფოტო/ვიდეო მასალა ჩაიტვირთა წარმატებით",
+                attachments = task.taskAttachedData ?? new List<TaskAttachedData>()
+            });
         }
 
-        /// დავალების დასრულების მოთხოვნის უარყოფა
-        //[HttpPut("declineTask")]
-        //public async Task<IActionResult> DeclinedTask([FromBody] DeclineTaskRequest? declineTaskRequest)
-        //{
-        //    if (declineTaskRequest == null)
-        //        return BadRequest("Task request cannot be null");
-
-        //    try
-        //    {
-        //        var taskId = declineTaskRequest.taskId;
-        //        if (string.IsNullOrEmpty(taskId))
-        //            return BadRequest("TaskId is required");
-
-        //        var taskById = await _tasksRepository.GetByIdAsync(taskId);
-        //        if (taskById == null)
-        //            return NotFound($"Task with ID {taskId} not found");
-
-        //        var userId = await getUserIdViaSessionToken();
-        //        if (string.IsNullOrEmpty(userId))
-        //            return Unauthorized("User ID not found in session");
-
-        //        var userInfo = await _userRepository.GetByIdAsync(userId);
-        //        if (userInfo == null)
-        //            return Unauthorized("User information not found");
-
-        //        var userLevelStr = $"level{userInfo.level}";
-        //        var receiverLevelStr = $"level{userInfo.level - 1}";
-
-        //        var senderProperty = taskById.dataFlow.GetType().GetProperty(userLevelStr);
-        //        if (senderProperty?.GetValue(taskById.dataFlow) is Tasks.Level senderLevel)
-        //        {
-        //            senderLevel.status = "onPending";
-        //            senderLevel.timeSpan = DateTime.UtcNow;
-        //            senderProperty.SetValue(taskById.dataFlow, senderLevel);
-        //        }
-
-        //        var receiverProperty = taskById.dataFlow.GetType().GetProperty(receiverLevelStr);
-        //        if (receiverProperty?.GetValue(taskById.dataFlow) is Tasks.Level receiverLevelValue)
-        //        {
-        //            receiverLevelValue.status = "onGoing";
-        //            receiverLevelValue.timeSpan = DateTime.UtcNow;
-        //            receiverProperty.SetValue(taskById.dataFlow, receiverLevelValue);
-
-        //            var receiverUser = await _userRepository.GetByIdAsync(receiverLevelValue.userId);
-        //            if (receiverUser != null)
-        //            {
-        //                var georgiaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Georgian Standard Time");
-        //                var georgiaTime = TimeZoneInfo.ConvertTime(DateTime.Now, georgiaTimeZone);
-
-        //                taskById.dataLogs ??= new List<Tasks.TaskLogEntry>();
-        //                taskById.dataLogs.Add(new Tasks.TaskLogEntry
-        //                {
-        //                    level = userInfo.level,
-        //                    timestamp = georgiaTime.ToString("M/d/yyyy, h:mm:ss tt"),
-        //                    addedByName = userInfo.fullname,
-        //                    addedById = userInfo.id,
-        //                    description = "დავალების დასრულების მოთხოვნის უარყოფა",
-        //                    receiverName = receiverUser.fullname,
-        //                    receiverId = receiverUser.id,
-        //                    imgUrl = userInfo.imgUrl,
-        //                    comment = declineTaskRequest.comment
-        //                });
-        //            }
-
-        //            await _tasksRepository.UpdateAsync(taskById.id!, taskById);
-        //            if (receiverLevelValue.userId != null)
-        //                await SendData(receiverLevelValue.userId);
-        //        }
-
-        //        return Ok("everything work well");
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, $"internal server error: {ex.Message}");
-        //    }
-        //}
-
+        
         /// შიდა მეთოდი - აბრუნებს დავალებებს სტატუსის მიხედვით (გამოიყენება ზემოთ არსებული Get მეთოდებში)
         private async Task<IActionResult> GetFilteredTasksAsync(bool status, int skip, int take)
         {
@@ -704,7 +536,8 @@ namespace ASP.MongoDb.API.Controllers
                 t.convicted,
                 t.lawyer,
                 t.registerDate,
-                t.dataLogs
+                t.dataLogs,
+                t.statusIdentifier
             });
 
             return Ok(results);

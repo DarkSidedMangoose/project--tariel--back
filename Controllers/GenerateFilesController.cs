@@ -1,13 +1,14 @@
-﻿using ASP.MongoDb.API.Repository;
+﻿using ASP.MongoDb.API.Entities;
+using ASP.MongoDb.API.Repository;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Wordprocessing;
 using Microsoft.AspNetCore.Http;
-using ASP.MongoDb.API.Entities;
 using Microsoft.AspNetCore.Mvc;
+using MongoDB.Bson;
 using System.Drawing;
 using System.Text.RegularExpressions;
 using Color = System.Drawing.Color;
-using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Wordprocessing;
-using DocumentFormat.OpenXml;
 
 namespace ASP.MongoDb.API.Controllers
 {
@@ -39,8 +40,40 @@ namespace ASP.MongoDb.API.Controllers
             var templateList = allData.Select(t => t.templateName).ToList();
             var templateIds = allData.Select(t => t.id).ToList();
 
-            return Ok(new { templateList, templateIds });
+            return Ok(new
+            {
+                message = "შაბლონები განახლდა წარმატებით",
+                templateList,
+                templateIds
+            });
         }
+
+        [HttpGet("getFilteredTemplateNames")]
+        public async Task<IActionResult> GetFilteredTemplateNames([FromQuery] string search)
+        {
+            var allData = await _generateFilesRepository.GetAllAsync();
+            if (allData == null)
+                return BadRequest("Connection error to the database");
+
+            // Apply filtering if search is provided
+            if (search != null)
+            {
+                allData = allData
+                    .Where(t => t.templateName.Contains(search, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+
+            var templateList = allData.Select(t => t.templateName).ToList();
+            var templateIds = allData.Select(t => t.id).ToList();
+
+            return Ok(new
+            {
+                message = "შაბლონები გაიფილტრა წარმატებით",
+                templateList,
+                templateIds
+            });
+        }
+
 
         [HttpGet("getTemplateState")]
         public async Task<IActionResult> GetTemplateState([FromQuery] string templateId)
@@ -62,6 +95,20 @@ namespace ASP.MongoDb.API.Controllers
             return Ok("Template added successfully");
         }
 
+        [HttpDelete("deleteTemplate")]
+        public async Task<IActionResult> DeleteTemplate([FromQuery] string id)
+        {
+            // Validate and convert string to ObjectId
+            if (!ObjectId.TryParse(id, out ObjectId objectId))
+                return BadRequest("Invalid id format");
+
+            // Try to delete
+            var success = await _generateFilesRepository.DeleteAsync(id);
+            if (!success)
+                return BadRequest($"Failed to delete template with id {id}");
+
+            return Ok($"Template with id {id} deleted successfully");
+        }
         [HttpPut("updateTemplate")]
         public async Task<IActionResult> UpdateTemplate([FromBody] GenerateFiles response)
         {

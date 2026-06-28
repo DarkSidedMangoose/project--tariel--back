@@ -63,13 +63,13 @@ namespace ASP.MongoDb.API.Repository
 
         // Deletes a document by its ID
 
-        public async Task DeleteAsync(string id)
+        public async Task<bool> DeleteAsync(string id)
         {
-            // Convert the string 'id' to an ObjectId before querying
-            var objectId = new ObjectId(id);
+            if (!ObjectId.TryParse(id, out ObjectId objectId))
+                return false;
 
-            // Remove the document where the '_id' matches the provided ID
-            await _collection.DeleteOneAsync(Builders<T>.Filter.Eq("_id", objectId));
+            var result = await _collection.DeleteOneAsync(Builders<T>.Filter.Eq("_id", objectId));
+            return result.DeletedCount > 0;
         }
     }
 }

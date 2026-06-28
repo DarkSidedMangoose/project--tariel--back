@@ -13,12 +13,14 @@ namespace ASP.MongoDb.API.Entities
 
         public string? workingCode { get; set; }
         public string? convicted { get; set; }
-
+        public DateTime? timeSpan { get; set; }
         public string? registerDate { get; set; }
         public string? lawyer { get; set; }
 
         public bool? status { get; set; }
+        public string? statusIdentifier { get; set; }
         public List<TaskLogEntry>? dataLogs { get; set; } = new List<TaskLogEntry>();
+        public string? lawyerId { get; set; }
    
 
 
@@ -35,6 +37,7 @@ namespace ASP.MongoDb.API.Entities
         public string? receiverId { get; set; }
         public string? comment { get; set; }
         public string? imgUrl { get; set; }
+
     }
 
     public class TaskAttachedData

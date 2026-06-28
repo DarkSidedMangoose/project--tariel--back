@@ -1,4 +1,6 @@
-﻿namespace ASP.MongoDb.API.Repository
+﻿using MongoDB.Bson;
+
+namespace ASP.MongoDb.API.Repository
 {
     public interface IRepository<T> where T : class
     {
@@ -11,6 +13,6 @@
         //Updates an existing document by its ID
         Task UpdateAsync(string id,T entity);
         //Deletes a document by its ID
-        Task DeleteAsync(string id);
+        Task<bool> DeleteAsync(string id);
     }
 }

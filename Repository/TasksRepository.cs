@@ -28,7 +28,7 @@ namespace ASP.MongoDb.API.Repository
         )
         {
             // Build the sort path dynamically based on the user’s level
-            var sortField = $"dataFlow.{authenticatedUserLevel}.timeSpan";
+            var sortField = $"timeSpan";
 
             return await _collection
                 .Find(filter)
